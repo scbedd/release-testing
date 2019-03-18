@@ -1,0 +1,32 @@
+trigger:
+  - master
+
+variables:
+  PythonVersion: '3.6'
+
+jobs:
+  - job: 'Build'
+
+    pool:
+      vmImage: 'ubuntu-16.04'
+
+    steps:
+      - task: UsePythonVersion@0
+        displayName: 'Use Python $(PythonVersion)'
+        inputs:
+          versionSpec: $(PythonVersion)
+
+      - script: |
+          pip install wheel setuptools pathlib twine readme-renderer[md]
+        displayName: 'Prep Environment'
+
+      - script: |
+          cd $(Build.SourcesDirectory)/packages/azure-template
+          python setup.py bdist_wheel -d $(Build.ArtifactStagingDirectory)
+        displayName: 'Generate Package'
+
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        displayName: 'Publish Artifacts'
+        inputs:
+          artifactName: packages
