@@ -1,0 +1,11 @@
+#Your build pipeline references the ‘input_tag’ variable, which you’ve selected to be settable at queue time. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab, and then select the option to make it settable at queue time. See https://go.microsoft.com/fwlink/?linkid=865971
+
+steps:
+- task: GitHubRelease@0
+  displayName: 'Create Git Tag and Release'
+  inputs:
+    gitHubConnection: scbedd
+    repositoryName: 'scbedd/release-testing'
+    tagSource: manual
+    tag: '$(input_tag)'
+    releaseNotesFile: '$(Agent.ReleaseDirectory)/release_notes.md'
