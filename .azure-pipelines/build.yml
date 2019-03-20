@@ -22,7 +22,8 @@ jobs:
 
       - script: |
           cd $(Build.SourcesDirectory)/packages/azure-template
-          python setup.py bdist_wheel sdist -d $(Build.ArtifactStagingDirectory)
+          python setup.py bdist_wheel -d $(Build.ArtifactStagingDirectory)
+          python setup.py sdist -d $(Build.ArtifactStagingDirectory)
         displayName: 'Generate Package'
 
       - task: PublishBuildArtifacts@1
