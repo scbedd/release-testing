@@ -20,4 +20,3 @@ foreach($p in $package_list -Split ","){
     git tag -a $p -m "$v release of $n" $release_sha
     git push origin $p
 }
-
