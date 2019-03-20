@@ -11,8 +11,6 @@ param (
 
 cd $target_repo
 
-git status
-
 foreach($p in $package_list -Split ","){
     $v = ($p -Split "_")[1]
     $n = ($p -Split "_")[0]
