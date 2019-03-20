@@ -2,7 +2,8 @@
 
 param (
     $package_list,
-    $target_repo
+    $target_repo,
+    $release_sha
 )
 
 # just getting this working
@@ -13,10 +14,10 @@ cd $target_repo
 git status
 
 foreach($p in $package_list -Split ","){
-    Write-Host "$p"
-    Write-Host "git tag -a $p -m 'Release Tag for Package: $p'"
-    Write-Host "git push origin :refs/tags/$p"
-    git tag -a $p -m "Release Tag for Package: $p"
+    $v = ($p -Split "_")[1]
+    $n = ($p -Split "_")[0]
+
+    git tag -a $p -m "$v release of $n" $release_sha
     git push origin $p
 }
 

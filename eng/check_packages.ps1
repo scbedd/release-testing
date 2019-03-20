@@ -1,10 +1,9 @@
 # retrieve the information for each of the passed packages
 
-#param (
-#  $artifactList
-#)
+param (
+  $artifactLocation
+)
 
-Write-Host "Oh yeah, this stuff totally verifies"
 
 
 #foreach ( $p in(Get-ChildItem $pathToArtifacts -Recurse -Filter "*.tgz" -File) ){
