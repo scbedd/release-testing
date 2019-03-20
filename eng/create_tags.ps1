@@ -17,6 +17,6 @@ foreach($p in $package_list -Split ","){
     Write-Host "git tag -a $p -m 'Release Tag for Package: $p'"
     Write-Host "git push origin :refs/tags/$p"
     git tag -a $p -m "Release Tag for Package: $p"
-    git push origin :refs/tags/$p
+    git push origin $p
 }
 
