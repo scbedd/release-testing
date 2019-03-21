@@ -3,6 +3,9 @@ param (
   $artifactLocation
 )
 
+
+# invokes PYPI, returns the existing version of a package.
+# if it can't find that package, returns version 0.0.0.0
 function Invoke-PyPI($packageId, $existingPackageVersion)
 {
   try {
@@ -16,6 +19,7 @@ function Invoke-PyPI($packageId, $existingPackageVersion)
     # if this is 404ing, then this package has never been published before
     if($statusCode -eq 404)
     {
+      # so we return a simple version specifier
       return "0.0.0.0"
     }
 
@@ -24,6 +28,43 @@ function Invoke-PyPI($packageId, $existingPackageVersion)
     Write-Host "StatusDescription:" $statusDescription
     exit(1)
   }
+}
+
+function Compare-Version-Specifiers($version1, $version2)
+{
+  $v1Array = $version1 -Split "."
+  $v2Array = $version2 -Split "."
+  $stopIndex = 0
+
+  # we always want to walk the shorter array first
+  # after that, if the +1 element of the longer array is a non 0 number, that one is the greater one
+  if($v1Array.Length > $v2Array.Length)
+  {
+    for($i = 0; $i -lt $v2Array.Length; $i++)
+    {
+      if($v2Array[$i] -gt $v1Array[$i])
+      {
+
+      }
+
+      if($v2Array[$i] -eq $v1Array[$i])
+      {
+        continue
+      }
+
+      if($v2Array[$i] -eq $v1Array[$i])
+      {
+        continue
+      }
+    }
+  }
+  else 
+  {
+
+  }
+
+
+
 }
 
 function Verify-Package-Wheels($wheels)
