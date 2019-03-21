@@ -26,6 +26,12 @@ jobs:
           python setup.py sdist -d $(Build.ArtifactStagingDirectory)
         displayName: 'Generate Package'
 
+      - script: |
+          cd $(Build.SourcesDirectory)/packages/azure-template-copy
+          python setup.py bdist_wheel -d $(Build.ArtifactStagingDirectory)
+          python setup.py sdist -d $(Build.ArtifactStagingDirectory)
+        displayName: 'Generate Second Package'
+
       - task: PublishBuildArtifacts@1
         condition: succeededOrFailed()
         displayName: 'Publish Artifacts'
