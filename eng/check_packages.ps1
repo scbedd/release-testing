@@ -38,3 +38,6 @@ foreach ($tar in (Get-ChildItem $artifactLocation\* -Recurse -Include *.tar.gz))
         Write-Host $_.Exception.Message
    }
 }
+
+
+
