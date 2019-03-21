@@ -1,6 +1,6 @@
 [packaging]
 auto_update = true
-package_name = "azure-template"
+package_name = "azure-template-copy"
 package_pprint_name = "Template Package"
 is_stable = false
 is_arm = false

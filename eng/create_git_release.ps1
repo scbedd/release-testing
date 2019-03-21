@@ -1,7 +1,6 @@
 param (
   $ghToken,
   $releaseTags,
-  $artifactSHA,
   $releaseURL, # Sample Github URL for azure-sdk-for-python: https://api.github.com/repos/scbedd/release-testing/releases
   $targetBranch = "master"
 )
