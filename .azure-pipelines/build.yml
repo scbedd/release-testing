@@ -23,13 +23,13 @@ jobs:
       - script: |
           cd $(Build.SourcesDirectory)/packages/azure-template
           python setup.py bdist_wheel -d $(Build.ArtifactStagingDirectory)
-          python setup.py sdist -d $(Build.ArtifactStagingDirectory)
+          python setup.py sdist -d $(Build.ArtifactStagingDirectory) --format zip
         displayName: 'Generate Package'
 
       - script: |
           cd $(Build.SourcesDirectory)/packages/azure-template-copy
           python setup.py bdist_wheel -d $(Build.ArtifactStagingDirectory)
-          python setup.py sdist -d $(Build.ArtifactStagingDirectory)
+          python setup.py sdist -d $(Build.ArtifactStagingDirectory) --format zip
         displayName: 'Generate Second Package'
 
       - task: PublishBuildArtifacts@1

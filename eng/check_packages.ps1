@@ -3,41 +3,59 @@ param (
   $artifactLocation
 )
 
-function verifyPackageWheel($wheel)
+function Invoke-PyPI($name)
 {
-    Write-Host $wheel
+
 }
 
-function verifyPackageSDist($tar)
+function Verify-Package-Wheels($wheels)
 {
-    Write-Host $tar
+  foreach ($wheel in $wheels)
+  {
+    try 
+    {
+      $packageList += $wheel
+    }
+    catch 
+    {
+      Write-Host $_.Exception.Message
+    }
+  }
+
+  return $packageList
+}
+
+function Verify-Package-SDists($tars)
+{
+  foreach ($tar in $tars)
+  {
+    try 
+    {
+      $packageList += $tar
+    }
+    catch 
+    {
+      Write-Host $_.Exception.Message
+      exit(1)
+    }
+  }
+  
+  return $packageList
 }
 
 # wheels
-foreach ($wheel in (Get-ChildItem $artifactLocation\* -Recurse -Include *.whl))
-{
-   try 
-   {
-        verifyPackageWheel($wheel)
-   }
-   catch 
-   {
-        Write-Host $_.Exception.Message
-   }
-}
+$wheels = Verify-Package-Wheels -wheels (Get-ChildItem $artifactLocation\* -Recurse -Include *.whl)
+$tars = Verify-Package-SDists -tars (Get-ChildItem $artifactLocation\* -Recurse -Include *.tar.gz)
 
-# sdist
-foreach ($tar in (Get-ChildItem $artifactLocation\* -Recurse -Include *.tar.gz))
-{
-   try 
-   {
-        verifyPackageSDist($tar)
-   }
-   catch 
-   {
-        Write-Host $_.Exception.Message
-   }
-}
+$packageList = ([array]$wheels + $tars | select -uniq) -join ","
+
+# set the output variable for the task
+Write-Host "##vso[task.setvariable variable=PackageList]"
+
+
+
+
+
 
 
 
