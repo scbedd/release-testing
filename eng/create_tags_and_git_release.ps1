@@ -12,8 +12,8 @@ param (
   $releaseSha # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
 
   # used by Git Release
-  $ghToken, # used during creation of the github release
-  $releaseApiUrl, # API URL for github release creation. Example: https://api.github.com/repos/scbedd/release-testing/releases
+  # Expects $env:GH_TOKEN to be populated
+  $releaseApiUrl, # API URL for github release creation. Example: 
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
@@ -22,7 +22,7 @@ function CreateTags($packageList, $clonedRepoLocation, $releaseSha)
   $currentLocation = gl
   cd $clonedRepoLocation
 
-  foreach($p in $packageList -Split ","){
+  foreach($p in $packageList){
     $v = ($p -Split "_")[1]
     $n = ($p -Split "_")[0]
 
@@ -34,27 +34,30 @@ function CreateTags($packageList, $clonedRepoLocation, $releaseSha)
   cd $currentLocation
 }
 
-function CreateRelease($releaseTag, $ghToken, $releaseApiUrl, $targetBranch)
+function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
 {
-  $url = $releaseApiUrl
-  $body = @{
-    tag_name = $releaseTag
-    target_commitish = "master"
-    name = $releaseTag
-    draft = "false"
-    prerelease = "false"
-  }
-  $headers = @{
-    "Content-Type" = "application/json"
-    "Authorization" = "token $ghToken" 
-  }
-
-  Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
-
-  if ($LastExitCode -ne 0)
+  foreach($releaseTag in $releaseTags)
   {
-    Write-Host "Git Release Failed with exit code: $LastExitCode."
-    exit 1
+    $url = $releaseApiUrl
+    $body = @{
+      tag_name = $releaseTag
+      target_commitish = $targetBranch
+      name = $releaseTag
+      draft = "false"
+      prerelease = "false"
+    }
+    $headers = @{
+      "Content-Type" = "application/json"
+      "Authorization" = "token $($env:GH_TOKEN)" 
+    }
+
+    Write-Host "Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers"
+
+    if ($LastExitCode -ne 0)
+    {
+      Write-Host "Git Release Failed with exit code: $LastExitCode."
+      exit 1
+    }
   }
 }
 
@@ -324,8 +327,9 @@ function VerifyPackages($pkgs, $pkgRepository)
 
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
-$pkgList = ([array]$pkgList | select -uniq) -join ","
+$pkgList = ([array]$pkgList | select -uniq)
 
 # CREATE TAGS
+CreateTags -packageList $pkgList -clonedRepoLocation $clonedRepoLocation -releaseSha $releaseSha
 
-# CREATE RELEASE
+# CREATE RELEAS
