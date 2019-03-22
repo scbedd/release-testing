@@ -332,4 +332,5 @@ $pkgList = ([array]$pkgList | select -uniq)
 # CREATE TAGS
 CreateTags -packageList $pkgList -clonedRepoLocation $clonedRepoLocation -releaseSha $releaseSha
 
-# CREATE RELEAS
+# CREATE RELEASES
+CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
