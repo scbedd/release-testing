@@ -329,10 +329,8 @@ function VerifyPackages($pkgs, $pkgRepository)
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
 $pkgList = ([array]$pkgList | select -uniq)
 
-Write-Host $pkgList
-
 # CREATE TAGS
-#CreateTags -packageList $pkgList -clonedRepoLocation $clonedRepoLocation -releaseSha $releaseSha
+CreateTags -packageList $pkgList -clonedRepoLocation $clonedRepoLocation -releaseSha $releaseSha
 
 # CREATE RELEASES
-#CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
+CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
