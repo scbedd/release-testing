@@ -39,6 +39,7 @@ function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
 {
   foreach($releaseTag in $releaseTags)
   {
+    Write-Host "Creating release $releaseTag"
     $url = $releaseApiUrl
     $body = ConvertTo-Json @{
       tag_name = $releaseTag
@@ -324,6 +325,9 @@ function VerifyPackages($pkgs, $pkgRepository)
 
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
+
+Write-Host "Observed Packages in Artifact Directory:"
+Write-Host $pkgList
 
 # CREATE TAGS
 CreateTags -packageList $pkgList -clonedRepoLocation $clonedRepoLocation -releaseSha $releaseSha
