@@ -270,22 +270,22 @@ function VerifyPackages($pkgs, $pkgRepository)
   {
     "Maven" {
       $CheckFunction = "InvokeMaven"
-      $ParseFunction = ""
+      $ParseFunction = "ParseMavenPackage"
       break
     }
     "Nuget" {
       $CheckFunction = "InvokeNuget"
-      $ParseFunction = ""
+      $ParseFunction = "ParseNugetPackage"
       break
     }
     "NPM" {
       $CheckFunction = "InvokeNPM"
-      $ParseFunction = ""
+      $ParseFunction = "ParseNPMPackage"
       break
     }
     "PyPI" {
       $CheckFunction = "InvokePyPI"
-      $ParseFunction = ""
+      $ParseFunction = "ParsePyPIPackage"
       break
     }
     default { 
@@ -322,8 +322,10 @@ function VerifyPackages($pkgs, $pkgRepository)
   return $pkgList
 }
 
-
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
 $pkgList = ([array]$pkgList | select -uniq) -join ","
 
+# CREATE TAGS
+
+# CREATE RELEASE
