@@ -26,6 +26,7 @@ function CreateTags($packageList, $clonedRepoLocation, $releaseSha)
     $v = ($p -Split "_")[1]
     $n = ($p -Split "_")[0]
 
+    # todo, figure out how to capture bad output from git. This should exit(1) on failure to create tags
     git tag -a $p -m "$v release of $n" $releaseSha
     git push origin $p
   }
@@ -51,13 +52,7 @@ function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
       "Authorization" = "token $($env:GH_TOKEN)" 
     }
 
-    Write-Host "Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers"
-
-    if ($LastExitCode -ne 0)
-    {
-      Write-Host "Git Release Failed with exit code: $LastExitCode."
-      exit 1
-    }
+    Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
   }
 }
 
