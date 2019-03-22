@@ -9,7 +9,7 @@ param (
 
   # used by CreateTags
   $clonedRepoLocation, # the location of where the git repo has been cloned such that we can push tags up from it.
-  $releaseSha # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
+  $releaseSha, # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
 
   # used by Git Release
   # Expects $env:GH_TOKEN to be populated
