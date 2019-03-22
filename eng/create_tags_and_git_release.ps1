@@ -39,10 +39,10 @@ function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
 {
   foreach($releaseTag in $releaseTags)
   {
-    $url = $releaseURL
+    $url = $releaseApiUrl
     $body = ConvertTo-Json @{
       tag_name = $releaseTag
-      target_commitish = "master"
+      target_commitish = $targetBranch
       name = $releaseTag
       draft = $False
       prerelease = $False
