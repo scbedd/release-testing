@@ -25,6 +25,10 @@ function ToSemVer($version){
 function CompareSemVer($a, $b){
   $result = 0
 
+  $c = $a
+  $a = $b
+  $b = $c
+
   $result =  $a.Major.CompareTo($b.Major)
   if($result -ne 0)
   {
@@ -110,17 +114,24 @@ $v2 = ToSemVer "1.1.1rc1"
 $v3 = ToSemVer "1.1.1"
 $v4 = ToSemVer "1.1.0"
 
-Write-Host "$($v1.VersionString) vs $($v2.VersionString)" 
-Write-Host (CompareSemVer -a $v1 -b $v2)
+$v5 = ToSemVer "0.0.1"
+$v6 = ToSemVer "0.0.0"
 
-Write-Host "$($v2.VersionString) vs $($v3.VersionString)" 
-Write-Host (CompareSemVer -a $v2 -b $v3)
 
-Write-Host "$($v1.VersionString) vs $($v3.VersionString)" 
-Write-Host (CompareSemVer -a $v1 -b $v3)
+# Write-Host "$($v1.VersionString) vs $($v2.VersionString)" 
+# Write-Host (CompareSemVer -a $v1 -b $v2)
 
-Write-Host "$($v4.VersionString) vs $($v3.VersionString)" 
-Write-Host (CompareSemVer -a $v4 -b $v3)
+# Write-Host "$($v2.VersionString) vs $($v3.VersionString)" 
+# Write-Host (CompareSemVer -a $v2 -b $v3)
+
+# Write-Host "$($v1.VersionString) vs $($v3.VersionString)" 
+# Write-Host (CompareSemVer -a $v1 -b $v3)
+
+# Write-Host "$($v4.VersionString) vs $($v3.VersionString)" 
+# Write-Host (CompareSemVer -a $v4 -b $v3)
 
 Write-Host "$($v3.VersionString) vs $($v4.VersionString)" 
 Write-Host (CompareSemVer -a $v3 -b $v4)
+
+Write-Host "$($v5.VersionString) vs $($v6.VersionString)" 
+Write-Host (CompareSemVer -a $v5 -b $v6)

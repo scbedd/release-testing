@@ -1,9 +1,10 @@
-# retrieve the information for each of the passed packages
+# retrieve the information for each of the passed pkgs
 param (
   $artifactLocation
 )
 
-function ToSemVer($version){
+function ToSemVer($version)
+{
   $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[A-Za-z][0-9A-Za-z]+))?$" | Out-Null
   $major = [int]$matches['major']
   $minor = [int]$matches['minor']
@@ -27,8 +28,17 @@ function ToSemVer($version){
     }
 }
 
-function CompareSemVer($a, $b){
+# compares two SemVer objects
+# if $a is bigger, return -1
+# if $b is bigger, return 1
+# else return 0
+function CompareSemVer($a, $b)
+{
   $result = 0
+
+  $c = $a
+  $a = $b
+  $b = $c
 
   $result =  $a.Major.CompareTo($b.Major)
   if($result -ne 0)
@@ -110,19 +120,19 @@ function CompareSemVer($a, $b){
   return $ap.Length.CompareTo($bp.Length)
 }
 
-# invokes PYPI, returns the existing version of a package.
-# if it can't find that package, returns version 0.0.0.0
-function InvokePyPI($packageId, $existingPackageVersion)
+# invokes PYPI, returns the existing version of a pkg.
+# if it can't find that pkg, returns version 0.0.0.0
+function InvokePyPI($pkgId)
 {
   try {
-    return (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$packageId/json").info.version
+    return (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$pkgId/json").info.version
   }
   catch 
   {
     $statusCode = $_.Exception.Response.StatusCode.value__
     $statusDescription = $_.Exception.Response.StatusDescription
     
-    # if this is 404ing, then this package has never been published before
+    # if this is 404ing, then this pkg has never been published before
     if($statusCode -eq 404)
     {
       # so we return a simple version specifier
@@ -136,44 +146,50 @@ function InvokePyPI($packageId, $existingPackageVersion)
   }
 }
 
-function VerifyPackages($packages)
+function VerifyPackages($pkgs)
 {
-  $packageList = [array]@()
+  $pkgList = [array]@()
 
-  foreach ($package in $packages)
+  foreach ($pkg in $pkgs)
   {
     try 
     {
-      $extension = $package.Extension
-      $packageId = ''
-      $packageVersion = ''
+      $extension = $pkg.Extension
+      $pkgId = ''
+      $pkgVersion = ''
 
-      if($package.Extension -eq ".whl")
+      if($pkg.Extension -eq ".whl")
       {
-        $nameParts = $package.Basename -Split "_"
+        $nameParts = $pkg.Basename -Split "-"
 
-        $packageId = $nameParts[0]
-        $packageVersion = $nameParts[1]
-      }
-      if($package.Extension -eq ".zip")
-      {
-        $nameParts = $package.Basename -Split "-"
+        $pkgId = $nameParts[0].Replace("_", "-")
+        $pkgVersion = $nameParts[1]
       }
       else {
-        Write-Host "Not a recognized package type. $extension"
-        exit(1)
+        if($pkg.Extension -eq ".zip")
+        {
+          $nameParts = $pkg.Basename -Split "-"
+
+          $pkgId = $nameParts[1..($nameParts.Length - 1)] -join "-"
+          $pkgVersion = $nameParts[($nameParts.Length)]
+        }
+        else {
+          Write-Host "Not a recognized pkg type: $extension"
+          exit(1)
+        }  
       }
 
-      $publishedVersion = (InvokePyPI -packageId $packageId -existingPackageVersion $packageVersion)
-      
-      if($publishedVersion -gt $packageVersion)
+      $publishedVersion = ToSemVer (InvokePyPI -pkgId $pkgId)
+      $pkgVersion = ToSemVer $pkgVersion
+
+      if((CompareSemVer $pkgVersion $publishedVersion) -ne -1)
       {
-        Write-Host "Package $packageId is marked with version $packageVersion, but the published PyPI package is marked with version $publishedVersion$."
-        Write-Host "Maybe a package version wasn't updated properly?"
+        Write-Host "Package $pkgId is marked with version $($pkgVersion.versionString), but the published PyPI pkg is marked with version $($publishedVersion.versionString)."
+        Write-Host "Maybe a pkg version wasn't updated properly?"
         exit(1)
       }
 
-      $packageList += $packageId + "_" + $packageVersion 
+      $pkgList += ($pkgId + "_" +($pkgVersion.versionString))
     }
     catch 
     {
@@ -182,19 +198,11 @@ function VerifyPackages($packages)
     }
   }
 
-  return $packageList
+  return $pkgList
 }
 
-$packageList = VerifyPackages -packages (Get-ChildItem $artifactLocation\* -Recurse -Include *.whl,*.tar.gz)
-$packageList = ([array]$packageList | select -uniq) -join ","
+$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -Include *.whl,*.tar.gz)
+$pkgList = ([array]$pkgList | select -uniq) -join ","
 
 # set the output variable for the task
-Write-Host "##vso[task.setvariable variable=PackageList]"
-
-
-
-
-
-
-
-
+Write-Host "##vso[task.setvariable variable=PackageList]$pkgList"
