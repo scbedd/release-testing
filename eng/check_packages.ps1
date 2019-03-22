@@ -116,8 +116,23 @@ function CompareSemVer($a, $b)
   return $ap.Length.CompareTo($bp.Length)
 }
 
+function InvokeMaven($pkgId)
+{
+  # todo
+}
+
+function InvokeNPM($pkgId)
+{
+  # todo
+}
+
+function InvokeNuget($pkgId)
+{
+  # todo
+}
+
 # invokes PYPI, returns the existing version of a pkg.
-# if it can't find that pkg, returns version 0.0.0.0
+# if it can't find that pkg, returns version 0.0.0
 function InvokePyPI($pkgId)
 {
   try {
