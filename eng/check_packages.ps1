@@ -36,10 +36,6 @@ function CompareSemVer($a, $b)
 {
   $result = 0
 
-  $c = $a
-  $a = $b
-  $b = $c
-
   $result =  $a.Major.CompareTo($b.Major)
   if($result -ne 0)
   {
@@ -182,7 +178,7 @@ function VerifyPackages($pkgs)
       $publishedVersion = ToSemVer (InvokePyPI -pkgId $pkgId)
       $pkgVersion = ToSemVer $pkgVersion
 
-      if((CompareSemVer $pkgVersion $publishedVersion) -ne -1)
+      if((CompareSemVer $pkgVersion $publishedVersion) -ne 1)
       {
         Write-Host "Package $pkgId is marked with version $($pkgVersion.versionString), but the published PyPI pkg is marked with version $($publishedVersion.versionString)."
         Write-Host "Maybe a pkg version wasn't updated properly?"

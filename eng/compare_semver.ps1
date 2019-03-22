@@ -25,10 +25,6 @@ function ToSemVer($version){
 function CompareSemVer($a, $b){
   $result = 0
 
-  $c = $a
-  $a = $b
-  $b = $c
-
   $result =  $a.Major.CompareTo($b.Major)
   if($result -ne 0)
   {
@@ -113,10 +109,8 @@ $v1 = ToSemVer "1.1.1rc2"
 $v2 = ToSemVer "1.1.1rc1"
 $v3 = ToSemVer "1.1.1"
 $v4 = ToSemVer "1.1.0"
-
 $v5 = ToSemVer "0.0.1"
 $v6 = ToSemVer "0.0.0"
-
 
 # Write-Host "$($v1.VersionString) vs $($v2.VersionString)" 
 # Write-Host (CompareSemVer -a $v1 -b $v2)
