@@ -1,7 +1,61 @@
-# retrieve the information for each of the passed pkgs
+# assumptions
+# * The repo which needs tags added should already be cloned.
+# * Git has been configured with credentials already. git_configure_creds
+
 param (
-  $artifactLocation
+  # used by VerifyPackages
+  $artifactLocation, # the root of the artifact folder. DevOps $(System.ArtifactsDirectory)
+
+  # used by CreateTags
+  $clonedRepoLocation, # the location of where the git repo has been cloned such that we can push tags up from it.
+  $releaseSha # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
+
+  # used by Git Release
+  $ghToken, # used during creation of the github release
+  $releaseApiUrl, # API URL for github release creation. Example: https://api.github.com/repos/scbedd/release-testing/releases
+  $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
+
+function CreateTags($packageList, $clonedRepoLocation, $releaseSha)
+{
+  $currentLocation = gl
+  cd $clonedRepoLocation
+
+  foreach($p in $packageList -Split ","){
+    $v = ($p -Split "_")[1]
+    $n = ($p -Split "_")[0]
+
+    git tag -a $p -m "$v release of $n" $releaseSha
+    git push origin $p
+  }
+
+  # return to original location
+  cd $currentLocation
+}
+
+function CreateRelease($releaseTag, $ghToken, $releaseApiUrl, $targetBranch)
+{
+  $url = $releaseApiUrl
+  $body = @{
+    tag_name = $releaseTag
+    target_commitish = "master"
+    name = $releaseTag
+    draft = "false"
+    prerelease = "false"
+  }
+  $headers = @{
+    "Content-Type" = "application/json"
+    "Authorization" = "token $ghToken" 
+  }
+
+  Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+
+  if ($LastExitCode -ne 0)
+  {
+    Write-Host "Git Release Failed with exit code: $LastExitCode."
+    exit 1
+  }
+}
 
 function ToSemVer($version)
 {
@@ -126,9 +180,17 @@ function InvokeNPM($pkgId)
   # todo
 }
 
+
+function ParseNugetPackages($)
+
 function InvokeNuget($pkgId)
 {
   # todo
+}
+
+function ParsePyPIPackages($pkgId)
+{
+
 }
 
 # invokes PYPI, returns the existing version of a pkg.
@@ -157,7 +219,7 @@ function InvokePyPI($pkgId)
   }
 }
 
-function VerifyPackages($pkgs)
+function VerifyPackages($pkgs, $pkgRepository)
 {
   $pkgList = [array]@()
 
@@ -190,7 +252,33 @@ function VerifyPackages($pkgs)
         }  
       }
 
-      $publishedVersion = ToSemVer (InvokePyPI -pkgId $pkgId)
+      $CheckFunction = ''
+
+      switch($pkgRepository)
+      {
+        "Maven" {
+          $CheckFunction = "InvokeMaven"
+          break
+        }
+        "Nuget" {
+          $CheckFunction = "InvokeNuget"
+          break
+        }
+        "NPM" {
+          $CheckFunction = "InvokeNPM"
+          break
+        }
+        "PyPI" {
+          $CheckFunction = "InvokePyPI"
+          break
+        }
+        default { 
+          Write-Host "Unrecognized Language: $language"
+          exit(1)
+        }
+      }
+
+      $publishedVersion = ToSemVer (&$CheckFunction -pkgId $pkgId)
       $pkgVersion = ToSemVer $pkgVersion
 
       if((CompareSemVer $pkgVersion $publishedVersion) -ne 1)
@@ -212,8 +300,8 @@ function VerifyPackages($pkgs)
   return $pkgList
 }
 
-$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -Include *.whl,*.tar.gz)
+
+# VERIFY PACKAGES
+$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *)
 $pkgList = ([array]$pkgList | select -uniq) -join ","
 
-# set the output variable for the task
-Write-Host "##vso[task.setvariable variable=PackageList]$pkgList"
