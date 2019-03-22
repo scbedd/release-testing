@@ -39,13 +39,13 @@ function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
 {
   foreach($releaseTag in $releaseTags)
   {
-    $url = $releaseApiUrl
-    $body = @{
+    $url = $releaseURL
+    $body = ConvertTo-Json @{
       tag_name = $releaseTag
-      target_commitish = $targetBranch
+      target_commitish = "master"
       name = $releaseTag
-      draft = "false"
-      prerelease = "false"
+      draft = $False
+      prerelease = $False
     }
     $headers = @{
       "Content-Type" = "application/json"
@@ -199,6 +199,7 @@ function InvokeNuget($pkgId)
   # todo
 }
 
+# examines a python deployment artifact and greps out the version and id
 function ParsePyPIPackage($pkg)
 {
   $extension = $pkg.Extension
@@ -258,6 +259,7 @@ function InvokePyPI($pkgId)
   }
 }
 
+# walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
 function VerifyPackages($pkgs, $pkgRepository)
 {
   $pkgList = [array]@()
@@ -317,12 +319,11 @@ function VerifyPackages($pkgs, $pkgRepository)
     }
   }
 
-  return $pkgList
+  return ([array]$pkgList | select -uniq)
 }
 
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
-$pkgList = ([array]$pkgList | select -uniq)
 
 # CREATE TAGS
 CreateTags -packageList $pkgList -clonedRepoLocation $clonedRepoLocation -releaseSha $releaseSha
