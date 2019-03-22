@@ -3,10 +3,116 @@ param (
   $artifactLocation
 )
 
+function ToSemVer($version){
+  $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[A-Za-z][0-9A-Za-z]+))?$" | Out-Null
+  $major = [int]$matches['major']
+  $minor = [int]$matches['minor']
+  $patch = [int]$matches['patch']
+  
+  if($matches['pre'] -eq $null)
+  {
+    $pre = @()
+  }
+  else
+  {
+    $pre = $matches['pre'].Split(".")
+  }
+
+  New-Object PSObject -Property @{ 
+    Major = $major
+    Minor = $minor
+    Patch = $patch
+    Pre = $pre
+    VersionString = $version
+    }
+}
+
+function CompareSemVer($a, $b){
+  $result = 0
+
+  $result =  $a.Major.CompareTo($b.Major)
+  if($result -ne 0)
+  {
+    return $result
+  }
+
+  $result = $a.Minor.CompareTo($b.Minor)
+  if($result -ne 0)
+  {
+    return $result
+  }
+
+  # compare the patch before the preview identifiers
+  $result = $a.Patch.CompareTo($b.Patch)
+  if($result -ne 0)
+  {
+    return $result
+  }
+
+  $ap = $a.Pre
+  $bp = $b.Pre
+
+  # if they have 0 length, they are equivalent
+  if($ap.Length -eq 0 -and $bp.Length -eq 0) 
+  {
+    return 0
+  }
+  
+  # a is blank and b is not? b is greater
+  if($ap.Length  -eq 0)
+  {
+    return 1
+  }
+  
+  if($bp.Length -eq 0){
+    return -1
+  }
+  
+  $minLength = [Math]::Min($ap.Length, $bp.Length)
+  
+  for($i = 0; $i -lt $minLength; $i++)
+  {
+    $ac = $ap[$i]
+    $bc = $bp[$i]
+
+    $anum = 0 
+    $bnum = 0
+    $aIsNum = [Int]::TryParse($ac, [ref] $anum)
+    $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
+
+    if($aIsNum -and $bIsNum) 
+    { 
+        $result = $anum.CompareTo($bnum) 
+        if($result -ne 0)
+        {
+            return $result
+        }
+    }
+
+    if($aIsNum)
+    {
+        return -1
+    }
+
+    if($bIsNum)
+    {
+      return 1
+    }
+    
+    $result = [string]::CompareOrdinal($ac, $bc)
+    if($result -ne 0)
+    {
+      return $result
+    }
+  }
+
+  Write-Host "We are here, which means that we haven't returned yet"
+  return $ap.Length.CompareTo($bp.Length)
+}
 
 # invokes PYPI, returns the existing version of a package.
 # if it can't find that package, returns version 0.0.0.0
-function Invoke-PyPI($packageId, $existingPackageVersion)
+function InvokePyPI($packageId, $existingPackageVersion)
 {
   try {
     return (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$packageId/json").info.version
@@ -20,7 +126,7 @@ function Invoke-PyPI($packageId, $existingPackageVersion)
     if($statusCode -eq 404)
     {
       # so we return a simple version specifier
-      return "0.0.0.0"
+      return "0.0.0"
     }
 
     Write-Host "PyPI Invocation failed:"
@@ -30,57 +136,36 @@ function Invoke-PyPI($packageId, $existingPackageVersion)
   }
 }
 
-function Compare-Version-Specifiers($version1, $version2)
-{
-  $v1Array = $version1 -Split "."
-  $v2Array = $version2 -Split "."
-  $stopIndex = 0
-
-  # we always want to walk the shorter array first
-  # after that, if the +1 element of the longer array is a non 0 number, that one is the greater one
-  if($v1Array.Length > $v2Array.Length)
-  {
-    for($i = 0; $i -lt $v2Array.Length; $i++)
-    {
-      if($v2Array[$i] -gt $v1Array[$i])
-      {
-
-      }
-
-      if($v2Array[$i] -eq $v1Array[$i])
-      {
-        continue
-      }
-
-      if($v2Array[$i] -eq $v1Array[$i])
-      {
-        continue
-      }
-    }
-  }
-  else 
-  {
-
-  }
-
-
-
-}
-
-function Verify-Package-Wheels($wheels)
+function VerifyPackages($packages)
 {
   $packageList = [array]@()
 
-  foreach ($wheel in $wheels)
+  foreach ($package in $packages)
   {
     try 
     {
-      $nameParts = $wheel.Basename -Split "_"
+      $extension = $package.Extension
+      $packageId = ''
+      $packageVersion = ''
 
-      $packageId = $nameParts[0]
-      $packageVersion = $nameParts[1]
-      $publishedVersion = (Invoke-PyPI -packageId $packageId -existingPackageVersion $packageVersion)
+      if($package.Extension -eq ".whl")
+      {
+        $nameParts = $package.Basename -Split "_"
 
+        $packageId = $nameParts[0]
+        $packageVersion = $nameParts[1]
+      }
+      if($package.Extension -eq ".zip")
+      {
+        $nameParts = $package.Basename -Split "-"
+      }
+      else {
+        Write-Host "Not a recognized package type. $extension"
+        exit(1)
+      }
+
+      $publishedVersion = (InvokePyPI -packageId $packageId -existingPackageVersion $packageVersion)
+      
       if($publishedVersion -gt $packageVersion)
       {
         Write-Host "Package $packageId is marked with version $packageVersion, but the published PyPI package is marked with version $publishedVersion$."
@@ -100,29 +185,8 @@ function Verify-Package-Wheels($wheels)
   return $packageList
 }
 
-function Verify-Package-SDists($tars)
-{
-  foreach ($tar in $tars)
-  {
-    try 
-    {
-      $packageList += $tar
-    }
-    catch 
-    {
-      Write-Host $_.Exception.Message
-      exit(1)
-    }
-  }
-  
-  return $packageList
-}
-
-# wheels
-$wheels = Verify-Package-Wheels -wheels (Get-ChildItem $artifactLocation\* -Recurse -Include *.whl)
-$tars = Verify-Package-SDists -tars (Get-ChildItem $artifactLocation\* -Recurse -Include *.tar.gz)
-
-$packageList = ([array]$wheels + $tars | select -uniq) -join ","
+$packageList = VerifyPackages -packages (Get-ChildItem $artifactLocation\* -Recurse -Include *.whl,*.tar.gz)
+$packageList = ([array]$packageList | select -uniq) -join ","
 
 # set the output variable for the task
 Write-Host "##vso[task.setvariable variable=PackageList]"
