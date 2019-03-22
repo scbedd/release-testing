@@ -5,6 +5,7 @@
 param (
   # used by VerifyPackages
   $artifactLocation, # the root of the artifact folder. DevOps $(System.ArtifactsDirectory)
+  $pkgRepository, # used to indicate destination against which we will check the existing version.
 
   # used by CreateTags
   $clonedRepoLocation, # the location of where the git repo has been cloned such that we can push tags up from it.
@@ -170,7 +171,17 @@ function CompareSemVer($a, $b)
   return $ap.Length.CompareTo($bp.Length)
 }
 
+function ParseMavenPackage($pkg)
+{
+  # todo
+}
+
 function InvokeMaven($pkgId)
+{
+  # todo
+}
+
+function ParseNPMPackage($pkg)
 {
   # todo
 }
@@ -180,17 +191,47 @@ function InvokeNPM($pkgId)
   # todo
 }
 
-
-function ParseNugetPackages($)
+function ParseNugetPackage($pkg)
+{
+  # todo
+}
 
 function InvokeNuget($pkgId)
 {
   # todo
 }
 
-function ParsePyPIPackages($pkgId)
+function ParsePyPIPackage($pkg)
 {
+  $extension = $pkg.Extension
+  $pkgId = ''
+  $pkgVersion = ''
 
+  if($pkg.Extension -eq ".whl")
+  {
+    $nameParts = $pkg.Basename -Split "-"
+
+    $pkgId = $nameParts[0].Replace("_", "-")
+    $pkgVersion = $nameParts[1]
+  }
+  else {
+    if($pkg.Extension -eq ".zip")
+    {
+      $nameParts = $pkg.Basename -Split "-"
+
+      $pkgId = $nameParts[1..($nameParts.Length - 1)] -join "-"
+      $pkgVersion = $nameParts[($nameParts.Length)]
+    }
+    else {
+      Write-Host "Not a recognized pkg type: $extension"
+      exit(1)
+    }  
+  }
+
+  return @{
+    PackageId = $pkgId
+    PackageVersion = $pkgVersion
+  }
 }
 
 # invokes PYPI, returns the existing version of a pkg.
@@ -222,64 +263,45 @@ function InvokePyPI($pkgId)
 function VerifyPackages($pkgs, $pkgRepository)
 {
   $pkgList = [array]@()
+  $CheckFunction = ''
+  $ParseFunction = ''
+
+  switch($pkgRepository)
+  {
+    "Maven" {
+      $CheckFunction = "InvokeMaven"
+      $ParseFunction = ""
+      break
+    }
+    "Nuget" {
+      $CheckFunction = "InvokeNuget"
+      $ParseFunction = ""
+      break
+    }
+    "NPM" {
+      $CheckFunction = "InvokeNPM"
+      $ParseFunction = ""
+      break
+    }
+    "PyPI" {
+      $CheckFunction = "InvokePyPI"
+      $ParseFunction = ""
+      break
+    }
+    default { 
+      Write-Host "Unrecognized Language: $language"
+      exit(1)
+    }
+  }
 
   foreach ($pkg in $pkgs)
   {
     try 
     {
-      $extension = $pkg.Extension
-      $pkgId = ''
-      $pkgVersion = ''
+      $parsedPackage = &$ParseFunction -pkg $pkg
 
-      if($pkg.Extension -eq ".whl")
-      {
-        $nameParts = $pkg.Basename -Split "-"
-
-        $pkgId = $nameParts[0].Replace("_", "-")
-        $pkgVersion = $nameParts[1]
-      }
-      else {
-        if($pkg.Extension -eq ".zip")
-        {
-          $nameParts = $pkg.Basename -Split "-"
-
-          $pkgId = $nameParts[1..($nameParts.Length - 1)] -join "-"
-          $pkgVersion = $nameParts[($nameParts.Length)]
-        }
-        else {
-          Write-Host "Not a recognized pkg type: $extension"
-          exit(1)
-        }  
-      }
-
-      $CheckFunction = ''
-
-      switch($pkgRepository)
-      {
-        "Maven" {
-          $CheckFunction = "InvokeMaven"
-          break
-        }
-        "Nuget" {
-          $CheckFunction = "InvokeNuget"
-          break
-        }
-        "NPM" {
-          $CheckFunction = "InvokeNPM"
-          break
-        }
-        "PyPI" {
-          $CheckFunction = "InvokePyPI"
-          break
-        }
-        default { 
-          Write-Host "Unrecognized Language: $language"
-          exit(1)
-        }
-      }
-
-      $publishedVersion = ToSemVer (&$CheckFunction -pkgId $pkgId)
-      $pkgVersion = ToSemVer $pkgVersion
+      $publishedVersion = ToSemVer (&$CheckFunction -pkgId $parsedPackage.PackageId)
+      $pkgVersion = ToSemVer $parsedPackage.PackageVersion
 
       if((CompareSemVer $pkgVersion $publishedVersion) -ne 1)
       {
@@ -302,6 +324,6 @@ function VerifyPackages($pkgs, $pkgRepository)
 
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *)
+$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
 $pkgList = ([array]$pkgList | select -uniq) -join ","
 
