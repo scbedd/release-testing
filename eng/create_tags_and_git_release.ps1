@@ -222,8 +222,8 @@ function ParsePyPIPackage($pkg)
     {
       $nameParts = $pkg.Basename -Split "-"
 
-      $pkgId = $nameParts[1..($nameParts.Length - 1)] -join "-"
-      $pkgVersion = $nameParts[($nameParts.Length)]
+      $pkgId = $nameParts[0..($nameParts.Length - 2)] -join "-"
+      $pkgVersion = $nameParts[($nameParts.Length-1)]
     }
     else {
       Write-Host "Not a recognized pkg type: $extension"
@@ -231,7 +231,7 @@ function ParsePyPIPackage($pkg)
     }  
   }
 
-  return @{
+  return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
   }
@@ -308,12 +308,12 @@ function VerifyPackages($pkgs, $pkgRepository)
 
       if((CompareSemVer $pkgVersion $publishedVersion) -ne 1)
       {
-        Write-Host "Package $pkgId is marked with version $($pkgVersion.versionString), but the published PyPI pkg is marked with version $($publishedVersion.versionString)."
+        Write-Host "Package $($parsedPackage.PackageId) is marked with version $($pkgVersion.versionString), but the published PyPI pkg is marked with version $($publishedVersion.versionString)."
         Write-Host "Maybe a pkg version wasn't updated properly?"
         exit(1)
       }
 
-      $pkgList += ($pkgId + "_" +($pkgVersion.versionString))
+      $pkgList += ($parsedPackage.PackageId + "_" +($pkgVersion.versionString))
     }
     catch 
     {
