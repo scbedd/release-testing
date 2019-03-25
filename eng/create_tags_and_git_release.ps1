@@ -25,8 +25,8 @@ function GitConfig(){
     
     # the below don't actually throw an error, just noisy on the command line if they are not set
   git config --global credential.helper cache
-  git config credential.https://github.com.username $($env:GH_TOKEN)
-  git config credential.https://github.com.password x-oauth-basic
+  git config --global credential.https://github.com.username $($env:GH_TOKEN)
+  git config --global credential.https://github.com.password x-oauth-basic
   git config --global user.email "azuresdkeng@microsoft.com"
   git config --global user.name "Azure SDK Team"
 }
@@ -356,8 +356,8 @@ function VerifyPackages($pkgs, $pkgRepository)
   return ([array]$pkgList | select -uniq)
 }
 
-# GIT PRE-WORK
 GitConfig
+# GIT PRE-WORK
 GitClone -targetRepo $repoUrl -repoCloneLocation $repoCloneLocation
 
 # VERIFY PACKAGES
