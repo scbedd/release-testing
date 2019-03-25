@@ -44,6 +44,7 @@ function CreateTags($tagList, $repoCloneLocation, $releaseSha)
   cd $repoCloneLocation
 
   foreach($tag in $tagList){
+    Write-Host "Writing $tag"
     $version = ($tag -Split "_")[1]
     $name = ($tag -Split "_")[0]
 
@@ -366,6 +367,6 @@ Write-Host $pkgList
 
 # CREATE TAGS and RELEASES
 CreateTags -packageList $pkgList -repoCloneLocation $repoCloneLocation -releaseSha $releaseSha
-CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
+#CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
 
 CleanupGitConfig
