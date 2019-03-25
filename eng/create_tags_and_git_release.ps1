@@ -1,7 +1,3 @@
-# assumptions
-# * The repo which needs tags added should already be cloned.
-# * Git has been configured with credentials already. git_configure_creds
-
 param (
   # used by VerifyPackages
   $artifactLocation, # the root of the artifact folder. DevOps $(System.ArtifactsDirectory)
@@ -31,18 +27,18 @@ function GitClone($targetRepo, $repoCloneLocation){
   git clone $targetRepo $repoCloneLocation
 }
 
-function CreateTags($packageList, $repoCloneLocation, $releaseSha)
+function CreateTags($tagList, $repoCloneLocation, $releaseSha)
 {
   $currentLocation = gl
   cd $repoCloneLocation
 
-  foreach($p in $packageList){
-    $v = ($p -Split "_")[1]
-    $n = ($p -Split "_")[0]
+  foreach($tag in $tagList){
+    $version = ($tag -Split "_")[1]
+    $name = ($tag -Split "_")[0]
 
     # todo, figure out how to capture bad output from git. This should exit(1) on failure to create tags
-    git tag -a $p -m "$v release of $n" $releaseSha
-    git push origin $p
+    git tag -a $tag -m "$version release of $name" $releaseSha
+    git push origin $tag
   }
 
   # return to original location
@@ -354,7 +350,7 @@ GitClone -targetRepo $repoUrl -repoCloneLocation $repoCloneLocation
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
 
-Write-Host "Observed Packages in Artifact Directory:"
+Write-Host "Tags discovered from the artifacts in the artifact directory: "
 Write-Host $pkgList
 
 # CREATE TAGS and RELEASES
