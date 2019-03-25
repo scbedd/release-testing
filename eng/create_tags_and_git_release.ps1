@@ -8,8 +8,11 @@ param (
   $pkgRepository, # used to indicate destination against which we will check the existing version.
 
   # used by CreateTags
-  $clonedRepoLocation, # the location of where the git repo has been cloned such that we can push tags up from it.
+  $repoCloneLocation, # the location of where the git repo has been cloned such that we can push tags up from it.
   $releaseSha, # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
+
+  # used to get the appropriate git repo for pushing tags
+  $repoUrl,
 
   # used by Git Release
   # Expects $env:GH_TOKEN to be populated
@@ -17,10 +20,21 @@ param (
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
-function CreateTags($packageList, $clonedRepoLocation, $releaseSha)
+function GitConfig(){
+  git config --global credential.helper store
+  Add-Content "$HOME/.git-credentials" "https://$($env:GH_TOKEN):x-oauth-basic@github.com`n"
+  git config --global user.email "azuresdkeng@microsoft.com"
+  git config --global user.name "Azure SDK Team"
+}
+
+function GitClone($targetRepo, $repoCloneLocation){
+  git clone $targetRepo $repoCloneLocation
+}
+
+function CreateTags($packageList, $repoCloneLocation, $releaseSha)
 {
   $currentLocation = gl
-  cd $clonedRepoLocation
+  cd $repoCloneLocation
 
   foreach($p in $packageList){
     $v = ($p -Split "_")[1]
@@ -53,7 +67,17 @@ function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
       "Authorization" = "token $($env:GH_TOKEN)" 
     }
 
-    Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+    try {
+      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers -ResponseHeadersVariable "Response"
+    }
+    catch {
+      $statusCode = $_.Exception.Response.StatusCode.value__
+      $statusDescription = $_.Exception.Response.StatusDescription
+    
+      Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
+      Write-Host $statusDescription
+      exit(1)
+    }
   }
 }
 
@@ -323,14 +347,16 @@ function VerifyPackages($pkgs, $pkgRepository)
   return ([array]$pkgList | select -uniq)
 }
 
+# GIT PRE-WORK
+GitConfig
+GitClone -targetRepo $repoUrl -repoCloneLocation $repoCloneLocation
+
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
 
 Write-Host "Observed Packages in Artifact Directory:"
 Write-Host $pkgList
 
-# CREATE TAGS
-CreateTags -packageList $pkgList -clonedRepoLocation $clonedRepoLocation -releaseSha $releaseSha
-
-# CREATE RELEASES
+# CREATE TAGS and RELEASES
+CreateTags -packageList $pkgList -repoCloneLocation $repoCloneLocation -releaseSha $releaseSha
 CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
