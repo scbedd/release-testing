@@ -366,7 +366,7 @@ Write-Host "Tags discovered from the artifacts in the artifact directory: "
 Write-Host $pkgList
 
 # CREATE TAGS and RELEASES
-CreateTags -packageList $pkgList -repoCloneLocation $repoCloneLocation -releaseSha $releaseSha
+CreateTags -tagList $pkgList -repoCloneLocation $repoCloneLocation -releaseSha $releaseSha
 #CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
 
 CleanupGitConfig
