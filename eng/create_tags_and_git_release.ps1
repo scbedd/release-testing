@@ -17,10 +17,21 @@ param (
 )
 
 function GitConfig(){
-  git config --global credential.helper store
-  Add-Content "$HOME/.git-credentials" "https://$($env:GH_TOKEN):x-oauth-basic@github.com`n"
+    # set to begin caching of git credentials
+  #  git config --global credential.helper cache
+    
+    # set the
+ #   Add-Content "~/.git-credentials" "https://$($env:GH_TOKEN):x-oauth-basic@github.com`n"
+    
+    # the below don't actually throw an error, just noisy on the command line if they are not set
+  git config --global credential.helper cache
+  git config credential.https://$($env:GH_TOKEN):x-oauth-basic@github.com
   git config --global user.email "azuresdkeng@microsoft.com"
   git config --global user.name "Azure SDK Team"
+}
+
+function CleanupGitConfig(){
+  git credential-cache exit
 }
 
 function GitClone($targetRepo, $repoCloneLocation){
@@ -356,3 +367,5 @@ Write-Host $pkgList
 # CREATE TAGS and RELEASES
 CreateTags -packageList $pkgList -repoCloneLocation $repoCloneLocation -releaseSha $releaseSha
 CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
+
+CleanupGitConfig
