@@ -91,14 +91,14 @@ function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
 
 function ToSemVer($version)
 {
-  $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[A-Za-z\-\.][0-9A-Za-z]+))?$" | Out-Null
+  $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?$" | Out-Null
   $major = [int]$matches['major']
   $minor = [int]$matches['minor']
   $patch = [int]$matches['patch']
-  
+
   if($matches['pre'] -eq $null)
   {
-    $pre = "0"
+    $pre = ""
   }
   else
   {
@@ -157,8 +157,8 @@ function CompareSemVer($a, $b)
     return -1
   }
   
-  $ac = $a.Pre[$i]
-  $bc = $b.Pre[$i]
+  $ac = $a.Pre
+  $bc = $b.Pre
 
   $anum = 0 
   $bnum = 0
