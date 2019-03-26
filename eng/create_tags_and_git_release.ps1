@@ -4,19 +4,15 @@ param (
   $pkgRepository, # used to indicate destination against which we will check the existing version.
 
   # used by CreateTags
-  $repoCloneLocation, # the location of where the git repo has been cloned such that we can push tags up from it.
   $releaseSha, # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
-
-  # used to get the appropriate git repo for pushing tags
-  $repoUrl,
 
   # used by Git Release
   # Expects $env:GH_TOKEN to be populated
-  $apiUrl, # API URL for github release creation. Example: 
+  $a.PreiUrl, # API URL for github requests
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
-function CreateTags($tagList, $apiUrl, $releaseSha)
+function CreateTags($tagList, $a.PreiUrl, $releaseSha)
 {
   # common headers. don't need to define multiple times
   $headers = @{
@@ -42,14 +38,14 @@ function CreateTags($tagList, $apiUrl, $releaseSha)
         }
       }
 
-      $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
+      $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $a.PreiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
 
       $refObjectBody = ConvertTo-Json @{
         "ref" = "refs/tags/$tag"
         "sha" = $outputSHA
       }
 
-      $result = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/refs -Body $refObjectBody -Headers $headers)
+      $result = (Invoke-RestMethod -Method 'Post' -Uri $a.PreiUrl/git/refs -Body $refObjectBody -Headers $headers)
     }
     catch 
     {
@@ -97,18 +93,18 @@ function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
 
 function ToSemVer($version)
 {
-  $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[A-Za-z][0-9A-Za-z]+))?$" | Out-Null
+  $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[A-Za-z\-\.][0-9A-Za-z]+))?$" | Out-Null
   $major = [int]$matches['major']
   $minor = [int]$matches['minor']
   $patch = [int]$matches['patch']
   
   if($matches['pre'] -eq $null)
   {
-    $pre = @()
+    $pre = "0"
   }
   else
   {
-    $pre = $matches['pre'].Split(".")
+    $pre = $matches['pre']
   }
 
   New-Object PSObject -Property @{ 
@@ -147,65 +143,57 @@ function CompareSemVer($a, $b)
     return $result
   }
 
-  $ap = $a.Pre
-  $bp = $b.Pre
-
   # if they have 0 length, they are equivalent
-  if($ap.Length -eq 0 -and $bp.Length -eq 0) 
+  if($a.Pre.Length -eq 0 -and $b.Pre.Length -eq 0) 
   {
     return 0
   }
   
   # a is blank and b is not? b is greater
-  if($ap.Length  -eq 0)
+  if($a.Pre.Length -eq 0)
   {
     return 1
   }
   
-  if($bp.Length -eq 0){
+  if($b.Pre.Length -eq 0){
     return -1
   }
   
-  $minLength = [Math]::Min($ap.Length, $bp.Length)
-  
-  for($i = 0; $i -lt $minLength; $i++)
+  $ac = $a.Pre[$i]
+  $bc = $b.Pre[$i]
+
+  $anum = 0 
+  $bnum = 0
+  $aIsNum = [Int]::TryParse($ac, [ref] $anum)
+  $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
+
+  if($aIsNum -and $bIsNum) 
+  { 
+      $result = $anum.CompareTo($bnum) 
+      if($result -ne 0)
+      {
+          return $result
+      }
+  }
+
+  if($aIsNum)
   {
-    $ac = $ap[$i]
-    $bc = $bp[$i]
+      return -1
+  }
 
-    $anum = 0 
-    $bnum = 0
-    $aIsNum = [Int]::TryParse($ac, [ref] $anum)
-    $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
-
-    if($aIsNum -and $bIsNum) 
-    { 
-        $result = $anum.CompareTo($bnum) 
-        if($result -ne 0)
-        {
-            return $result
-        }
-    }
-
-    if($aIsNum)
-    {
-        return -1
-    }
-
-    if($bIsNum)
-    {
-      return 1
-    }
-    
-    $result = [string]::CompareOrdinal($ac, $bc)
-    if($result -ne 0)
-    {
-      return $result
-    }
+  if($bIsNum)
+  {
+    return 1
+  }
+  
+  $result = [string]::CompareOrdinal($ac, $bc)
+  if($result -ne 0)
+  {
+    return $result
   }
 
   Write-Host "We are here, which means that we haven't returned yet"
-  return $ap.Length.CompareTo($bp.Length)
+  return $a.Pre.Length.CompareTo($b.Pre.Length)
 }
 
 function ParseMavenPackage($pkg)
@@ -368,7 +356,5 @@ Write-Host "Tags discovered from the artifacts in the artifact directory: "
 Write-Host $pkgList
 
 # CREATE TAGS and RELEASES
-CreateTags -tagList $pkgList -apiUrl $apiUrl -releaseSha $releaseSha
-CreateReleases -releaseTags $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
-
-CleanupGitConfig
+CreateTags -tagList $pkgList -apiUrl $a.PreiUrl -releaseSha $releaseSha
+CreateReleases -releaseTags $pkgList -releaseApiUrl $a.PreiUrl/releases -targetBranch $targetBranch
