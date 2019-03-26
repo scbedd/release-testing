@@ -12,50 +12,55 @@ param (
 
   # used by Git Release
   # Expects $env:GH_TOKEN to be populated
-  $releaseApiUrl, # API URL for github release creation. Example: 
+  $apiUrl, # API URL for github release creation. Example: 
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
-function GitConfig(){
-    # set to begin caching of git credentials
-  #  git config --global credential.helper cache
-    
-    # set the
- #   Add-Content "~/.git-credentials" "https://$($env:GH_TOKEN):x-oauth-basic@github.com`n"
-    
-    # the below don't actually throw an error, just noisy on the command line if they are not set
-  git config --global credential.helper cache
-  git config --global credential.https://github.com.username $($env:GH_TOKEN)
-  git config --global credential.https://github.com.password "x-oauth-basic"
-  git config --global user.email "azuresdkeng@microsoft.com"
-  git config --global user.name "Azure SDK Team"
-}
-
-function CleanupGitConfig(){
-  git credential-cache exit
-}
-
-function GitClone($targetRepo, $repoCloneLocation){
-  git clone $targetRepo $repoCloneLocation
-}
-
-function CreateTags($tagList, $repoCloneLocation, $releaseSha)
+function CreateTags($tagList, $apiUrl, $releaseSha)
 {
-  $currentLocation = gl
-  cd $repoCloneLocation
+  # common headers. don't need to define multiple times
+  $headers = @{
+    "Content-Type" = "application/json"
+    "Authorization" = "token $($env:GH_TOKEN)" 
+  }
 
   foreach($tag in $tagList){
     Write-Host "Writing $tag"
     $version = ($tag -Split "_")[1]
     $name = ($tag -Split "_")[0]
 
-    # todo, figure out how to capture bad output from git. This should exit(1) on failure to create tags
-    git tag -a $tag -m "$version release of $name" $releaseSha
-    git push origin $tag
-  }
+    try {
+      $tagObjectBody = ConvertTo-Json @{
+        tag = $tag
+        message = "$version release of $name"
+        object = $releaseSha
+        type = "commit"
+        tagger = @{
+          name = "Azure SDK Engineering System"
+          email = "azuresdkeng@microsoft.com"
+          date = Get-Date -Format "o"
+        }
+      }
 
-  # return to original location
-  cd $currentLocation
+      $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
+
+      $refObjectBody = ConvertTo-Json @{
+        "ref": "refs/tags/$tag"
+        "sha": $outputSHA
+      }
+
+      $result = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/refs -Body $refObjectBody -Headers $headers)
+    }
+    catch 
+    {
+      $statusCode = $_.Exception.Response.StatusCode.value__
+      $statusDescription = $_.Exception.Response.StatusDescription
+
+      Write-Host "Tag creation failed with statuscode $statusCode. Reason: "
+      Write-Host $statusDescription
+      exit(1)
+    }
+  }
 }
 
 function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
@@ -77,7 +82,7 @@ function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
     }
 
     try {
-      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers -ResponseHeadersVariable "Response"
+      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
     }
     catch {
       $statusCode = $_.Exception.Response.StatusCode.value__
@@ -356,10 +361,6 @@ function VerifyPackages($pkgs, $pkgRepository)
   return ([array]$pkgList | select -uniq)
 }
 
-GitConfig
-# GIT PRE-WORK
-GitClone -targetRepo $repoUrl -repoCloneLocation $repoCloneLocation
-
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
 
@@ -367,7 +368,7 @@ Write-Host "Tags discovered from the artifacts in the artifact directory: "
 Write-Host $pkgList
 
 # CREATE TAGS and RELEASES
-CreateTags -tagList $pkgList -repoCloneLocation $repoCloneLocation -releaseSha $releaseSha
-#CreateReleases -releaseTags $pkgList -releaseApiUrl $releaseApiUrl -targetBranch $targetBranch
+CreateTags -tagList $pkgList -apiUrl $apiUrl -releaseSha $releaseSha
+#CreateReleases -releaseTags $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
 
 CleanupGitConfig
