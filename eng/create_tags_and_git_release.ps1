@@ -8,11 +8,11 @@ param (
 
   # used by Git Release
   # Expects $env:GH_TOKEN to be populated
-  $a.PreiUrl, # API URL for github requests
+  $apiUrl, # API URL for github requests
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
-function CreateTags($tagList, $a.PreiUrl, $releaseSha)
+function CreateTags($pkgList, $apiUrl, $releaseSha)
 {
   # common headers. don't need to define multiple times
   $headers = @{
@@ -20,15 +20,13 @@ function CreateTags($tagList, $a.PreiUrl, $releaseSha)
     "Authorization" = "token $($env:GH_TOKEN)" 
   }
 
-  foreach($tag in $tagList){
-    Write-Host "Writing $tag"
-    $version = ($tag -Split "_")[1]
-    $name = ($tag -Split "_")[0]
+  foreach($pkgInfo in $pkgList){
+    Write-Host "Writing $($pkgInfo.Tag)"
 
     try {
       $tagObjectBody = ConvertTo-Json @{
-        tag = $tag
-        message = "$version release of $name"
+        tag = $pkgInfo.Tag
+        message = "$($pkgInfo.PackageVersion) release of $($pkgInfo.PackageId)"
         object = $releaseSha
         type = "commit"
         tagger = @{
@@ -38,14 +36,14 @@ function CreateTags($tagList, $a.PreiUrl, $releaseSha)
         }
       }
 
-      $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $a.PreiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
+      $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
 
       $refObjectBody = ConvertTo-Json @{
-        "ref" = "refs/tags/$tag"
+        "ref" = "refs/tags/$($pkgInfo.Tag)"
         "sha" = $outputSHA
       }
 
-      $result = (Invoke-RestMethod -Method 'Post' -Uri $a.PreiUrl/git/refs -Body $refObjectBody -Headers $headers)
+      $result = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/refs -Body $refObjectBody -Headers $headers)
     }
     catch 
     {
@@ -59,14 +57,14 @@ function CreateTags($tagList, $a.PreiUrl, $releaseSha)
   }
 }
 
-function CreateReleases($releaseTags, $releaseApiUrl, $targetBranch)
+function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
 {
-  foreach($releaseTag in $releaseTags)
+  foreach($pkgInfo in $pkgList)
   {
     Write-Host "Creating release $releaseTag"
     $url = $releaseApiUrl
     $body = ConvertTo-Json @{
-      tag_name = $releaseTag
+      tag_name = $pkgInfo.Tag
       target_commitish = $targetBranch
       name = $releaseTag
       draft = $False
@@ -107,7 +105,7 @@ function ToSemVer($version)
     $pre = $matches['pre']
   }
 
-  New-Object PSObject -Property @{ 
+  New-Object PSObject -Property @{
     Major = $major
     Minor = $minor
     Patch = $patch
@@ -290,29 +288,29 @@ function InvokePyPI($pkgId)
 function VerifyPackages($pkgs, $pkgRepository)
 {
   $pkgList = [array]@()
-  $CheckFunction = ''
-  $ParseFunction = ''
+  $GetLatestVersionFn = ''
+  $ParsePkgInfoFn = ''
 
   switch($pkgRepository)
   {
     "Maven" {
-      $CheckFunction = "InvokeMaven"
-      $ParseFunction = "ParseMavenPackage"
+      $GetLatestVersionFn = "InvokeMaven"
+      $ParsePkgInfoFn = "ParseMavenPackage"
       break
     }
     "Nuget" {
-      $CheckFunction = "InvokeNuget"
-      $ParseFunction = "ParseNugetPackage"
+      $GetLatestVersionFn = "InvokeNuget"
+      $ParsePkgInfoFn = "ParseNugetPackage"
       break
     }
     "NPM" {
-      $CheckFunction = "InvokeNPM"
-      $ParseFunction = "ParseNPMPackage"
+      $GetLatestVersionFn = "InvokeNPM"
+      $ParsePkgInfoFn = "ParseNPMPackage"
       break
     }
     "PyPI" {
-      $CheckFunction = "InvokePyPI"
-      $ParseFunction = "ParsePyPIPackage"
+      $GetLatestVersionFn = "InvokePyPI"
+      $ParsePkgInfoFn = "ParsePyPIPackage"
       break
     }
     default { 
@@ -325,9 +323,9 @@ function VerifyPackages($pkgs, $pkgRepository)
   {
     try 
     {
-      $parsedPackage = &$ParseFunction -pkg $pkg
+      $parsedPackage = &$ParsePkgInfoFn -pkg $pkg
 
-      $publishedVersion = ToSemVer (&$CheckFunction -pkgId $parsedPackage.PackageId)
+      $publishedVersion = ToSemVer (&$GetLatestVersionFn -pkgId $parsedPackage.PackageId)
       $pkgVersion = ToSemVer $parsedPackage.PackageVersion
 
       if((CompareSemVer $pkgVersion $publishedVersion) -ne 1)
@@ -337,7 +335,11 @@ function VerifyPackages($pkgs, $pkgRepository)
         exit(1)
       }
 
-      $pkgList += ($parsedPackage.PackageId + "_" +($pkgVersion.versionString))
+      $pkgList += New-Object PSObject -Property @{
+        PackageId = $parsedPackage.PackageId
+        PackageVersion = $pkgVersion.versionString
+        Tag = ($parsedPackage.PackageId + "_" + $pkgVersion.versionString)
+      }
     }
     catch 
     {
@@ -346,15 +348,18 @@ function VerifyPackages($pkgs, $pkgRepository)
     }
   }
 
-  return ([array]$pkgList | select -uniq)
+  return ([array]$pkgList | Sort-Object -Property Tag -uniq)
 }
 
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
 
 Write-Host "Tags discovered from the artifacts in the artifact directory: "
-Write-Host $pkgList
+
+foreach($packageInfo in $pkgList){
+  Write-Host $packageInfo.Tag
+}
 
 # CREATE TAGS and RELEASES
-CreateTags -tagList $pkgList -apiUrl $a.PreiUrl -releaseSha $releaseSha
-CreateReleases -releaseTags $pkgList -releaseApiUrl $a.PreiUrl/releases -targetBranch $targetBranch
+CreateTags -pkgList $pkgList -apiUrl $apiUrl -releaseSha $releaseSha
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
