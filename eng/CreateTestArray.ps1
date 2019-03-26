@@ -8,6 +8,8 @@ $testArray = @(
   ,@("2.0.0", "2.0.0", 0)
   ,@("2.0.0-preview.1", "2.0.0-preview.2", -1)
   ,@("2.0.0-preview.2", "2.0.0-preview.1", 1)
+  ,@("2.0.0-preview.2", "2.0.0", 1)
+  ,@("2.0.0", "2.0.0-preview.2", -1)
 )
 
 function ToSemVer($version)
@@ -69,13 +71,13 @@ function CompareSemVer($a, $b)
   }
   
   # a is blank and b is not? b is greater
-  if($a.Pre.Length -eq 0)
+  if($a.Pre.Length -eq 0 -and $b.Pre.Length -gt 0)
   {
-    return 1
+    return -1
   }
   
-  if($b.Pre.Length -eq 0){
-    return -1
+  if($b.Pre.Length -eq 0 -and $a.Pre.Length -gt 0){
+    return 1
   }
   
   $ac = $a.Pre

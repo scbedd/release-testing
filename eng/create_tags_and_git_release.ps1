@@ -1,3 +1,8 @@
+# ASSUMPTIONS
+# * that `npm` cli is present for querying available npm packages
+# * that `maven` cli is present to query maven packages
+# * that `nuget` cli is present to query nuget packages
+
 param (
   # used by VerifyPackages
   $artifactLocation, # the root of the artifact folder. DevOps $(System.ArtifactsDirectory)
@@ -148,13 +153,13 @@ function CompareSemVer($a, $b)
   }
   
   # a is blank and b is not? b is greater
-  if($a.Pre.Length -eq 0)
+  if($a.Pre.Length -eq 0 -and $b.Pre.Length -gt 0)
   {
-    return 1
+    return -1
   }
   
-  if($b.Pre.Length -eq 0){
-    return -1
+  if($b.Pre.Length -eq 0 -and $a.Pre.Length -gt 0){
+    return 1
   }
   
   $ac = $a.Pre
@@ -194,7 +199,7 @@ function CompareSemVer($a, $b)
   return $a.Pre.Length.CompareTo($b.Pre.Length)
 }
 
-function ParseMavenPackage($pkg)
+function ParseMavenPackage($pkg, $artifactLocation)
 {
   # todo
 }
@@ -204,17 +209,53 @@ function InvokeMaven($pkgId)
   # todo
 }
 
-function ParseNPMPackage($pkg)
+function ParseNPMPackage($pkg, $artifactLocation)
 {
-  # todo
+  $extension = $pkg.Extension
+  $pkgId = ''
+  $pkgVersion = ''
+
+  if($pkg.Extension -eq ".tgz")
+  {
+
+  }
+  else {
+    return $null
+  }
+
+  return New-Object PSObject -Property @{
+    PackageId = $pkgId
+    PackageVersion = $pkgVersion
+    PackageSemVer = ToSemVer $pkgVersion
+    PublishedSemVer = ToSemVer (InvokeNPM -pkgId $pkgId)
+  }
 }
 
 function InvokeNPM($pkgId)
 {
-  # todo
+  try {
+    throw "ARGH"
+  }
+  catch 
+  {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    $statusDescription = $_.Exception.Response.StatusDescription
+    
+    # if this is 404ing, then this pkg has never been published before
+    if($statusCode -eq 404)
+    {
+      # so we return a simple version specifier
+      return "0.0.0"
+    }
+
+    Write-Host "PyPI Invocation failed:"
+    Write-Host "StatusCode:" $statusCode
+    Write-Host "StatusDescription:" $statusDescription
+    exit(1)
+  }
 }
 
-function ParseNugetPackage($pkg)
+function ParseNugetPackage($pkg, $artifactLocation)
 {
   # todo
 }
@@ -225,7 +266,7 @@ function InvokeNuget($pkgId)
 }
 
 # examines a python deployment artifact and greps out the version and id
-function ParsePyPIPackage($pkg)
+function ParsePyPIPackage($pkg, $artifactLocation)
 {
   $extension = $pkg.Extension
   $pkgId = ''
@@ -233,6 +274,11 @@ function ParsePyPIPackage($pkg)
 
   if($pkg.Extension -eq ".whl")
   {
+    # Note that this assumption should be safe because python's build tools don't
+    # generate super difficult to parse outputs. 
+    # Package azure-template along with version specifier 0.2.8-preview.2
+    # translated to the following wheel format: azure_template-0.2.8rc2-py2.py3-none-any.whl
+    # Note the "8-preview.2" -> "8rc2" translation
     $nameParts = $pkg.Basename -Split "-"
 
     $pkgId = $nameParts[0].Replace("_", "-")
@@ -277,7 +323,7 @@ function InvokePyPI($pkgId)
 }
 
 # walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
-function VerifyPackages($pkgs, $pkgRepository)
+function VerifyPackages($pkgs, $pkgRepository, $artifactLocation)
 {
   $pkgList = [array]@()
   $GetLatestVersionFn = ''
@@ -311,7 +357,7 @@ function VerifyPackages($pkgs, $pkgRepository)
   {
     try 
     {
-      $parsedPackage = &$ParsePkgInfoFn -pkg $pkg
+      $parsedPackage = &$ParsePkgInfoFn -pkg $pkg -artifactLocation $artifactLocation
 
       if($parsedPackage -eq $null){
         continue
@@ -341,7 +387,7 @@ function VerifyPackages($pkgs, $pkgRepository)
 }
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository
+$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository -artifactLocation $artifactLocation
 
 Write-Host "Tags discovered from the artifacts in the artifact directory: "
 
