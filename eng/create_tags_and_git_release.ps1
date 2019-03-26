@@ -239,17 +239,7 @@ function ParsePyPIPackage($pkg)
     $pkgVersion = $nameParts[1]
   }
   else {
-    if($pkg.Extension -eq ".zip")
-    {
-      $nameParts = $pkg.Basename -Split "-"
-
-      $pkgId = $nameParts[0..($nameParts.Length - 2)] -join "-"
-      $pkgVersion = $nameParts[($nameParts.Length-1)]
-    }
-    else {
-      Write-Host "Not a recognized pkg type: $extension"
-      exit(1)
-    }  
+    return $null
   }
 
   return New-Object PSObject -Property @{
@@ -323,6 +313,10 @@ function VerifyPackages($pkgs, $pkgRepository)
     {
       $parsedPackage = &$ParsePkgInfoFn -pkg $pkg
 
+      if($parsedPackage -eq $null){
+        continue
+      }
+
       if((CompareSemVer $parsedPackage.PackageSemVer $parsedPackage.PublishedSemVer) -ne 1)
       {
         Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), but the published PyPI pkg is marked with version $($parsedPackage.PublishedSemVer.VersionString)."
@@ -356,5 +350,5 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-CreateTags -pkgList $pkgList -apiUrl $apiUrl -releaseSha $releaseSha
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+# CreateTags -pkgList $pkgList -apiUrl $apiUrl -releaseSha $releaseSha
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
