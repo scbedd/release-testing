@@ -7,6 +7,7 @@ param (
   # used by VerifyPackages
   $artifactLocation, # the root of the artifact folder. DevOps $(System.ArtifactsDirectory)
   $pkgRepository, # used to indicate destination against which we will check the existing version.
+  $packagePattern, # the file glob that will be used to collect the packages in the artifact folder. Example: *.whl
 
   # used by CreateTags
   $releaseSha, # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
@@ -17,50 +18,7 @@ param (
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
-function CreateTags($pkgList, $apiUrl, $releaseSha)
-{
-  # common headers. don't need to define multiple times
-  $headers = @{
-    "Content-Type" = "application/json"
-    "Authorization" = "token $($env:GH_TOKEN)" 
-  }
-
-  foreach($pkgInfo in $pkgList){
-    Write-Host "Writing $($pkgInfo.Tag)"
-
-    try {
-      $tagObjectBody = ConvertTo-Json @{
-        tag = $pkgInfo.Tag
-        message = "$($pkgInfo.PackageVersion) release of $($pkgInfo.PackageId)"
-        object = $releaseSha
-        type = "commit"
-        tagger = @{
-          name = "Azure SDK Engineering System"
-          email = "azuresdkeng@microsoft.com"
-          date = Get-Date -Format "o"
-        }
-      }
-
-      $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
-
-      $refObjectBody = ConvertTo-Json @{
-        "ref" = "refs/tags/$($pkgInfo.Tag)"
-        "sha" = $outputSHA
-      }
-
-      $result = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/refs -Body $refObjectBody -Headers $headers)
-    }
-    catch 
-    {
-      $statusCode = $_.Exception.Response.StatusCode.value__
-      $statusDescription = $_.Exception.Response.StatusDescription
-
-      Write-Host "Tag creation failed with statuscode $statusCode. Reason: "
-      Write-Host $statusDescription
-      exit(1)
-    }
-  }
-}
+$SEMVER_REGEX = "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?$"
 
 function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
 {
@@ -96,7 +54,7 @@ function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
 
 function ToSemVer($version)
 {
-  $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?$" | Out-Null
+  $version -match $SEMVER_REGEX | Out-Null
   $major = [int]$matches['major']
   $minor = [int]$matches['minor']
   $patch = [int]$matches['patch']
@@ -214,6 +172,8 @@ function ParseNPMPackage($pkg, $artifactLocation)
   $extension = $pkg.Extension
   $pkgId = ''
   $pkgVersion = ''
+
+  $workFolderLocation = "$artifactLocation/../work"
 
   if($pkg.Extension -eq ".tgz")
   {
@@ -387,7 +347,7 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation)
 }
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File *) -pkgRepository $pkgRepository -artifactLocation $artifactLocation
+$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File $packagePattern) -pkgRepository $pkgRepository -artifactLocation $artifactLocation
 
 Write-Host "Tags discovered from the artifacts in the artifact directory: "
 
@@ -396,5 +356,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateTags -pkgList $pkgList -apiUrl $apiUrl -releaseSha $releaseSha
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch

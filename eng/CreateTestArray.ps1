@@ -25,6 +25,9 @@ function ToSemVer($version)
   }
   else
   {
+    # strip "dash"
+      # then split on .
+      # then compare them section by section INT or ordinal
     $pre = $matches['pre']
   }
 
@@ -71,15 +74,18 @@ function CompareSemVer($a, $b)
   }
   
   # a is blank and b is not? b is greater
-  if($a.Pre.Length -eq 0 -and $b.Pre.Length -gt 0)
+  if($a.Pre.Length -eq 0)
   {
     return -1
   }
   
-  if($b.Pre.Length -eq 0 -and $a.Pre.Length -gt 0){
+  if($b.Pre.Length -eq 0){
     return 1
   }
   
+  $aParts = $a.Pre -Split "."
+  $aParts = $a.Pre -Split "."
+
   $ac = $a.Pre
   $bc = $b.Pre
 
@@ -113,7 +119,6 @@ function CompareSemVer($a, $b)
     return $result
   }
 
-  Write-Host "We are here, which means that we haven't returned yet"
   return $a.Pre.Length.CompareTo($b.Pre.Length)
 }
 

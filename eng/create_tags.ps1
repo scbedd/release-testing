@@ -1,25 +1,44 @@
-# retrieve the information for each of the passed packages
-
-param (
-    
-)
-
-# just getting this working
-# will place an output variable for the tagname eventually
-
-function CreateTags($packageList, $clonedRepoLocation, $releaseSha)
+function CreateTags($pkgList, $apiUrl, $releaseSha)
 {
-  $currentLocation = gl
-  cd $clonedRepoLocation
-
-  foreach($p in $packageList -Split ","){
-    $v = ($p -Split "_")[1]
-    $n = ($p -Split "_")[0]
-
-    git tag -a $p -m "$v release of $n" $releaseSha
-    git push origin $p
+  # common headers. don't need to define multiple times
+  $headers = @{
+    "Content-Type" = "application/json"
+    "Authorization" = "token $($env:GH_TOKEN)" 
   }
 
-  # return to original location
-  cd $currentLocation
+  foreach($pkgInfo in $pkgList){
+    Write-Host "Writing $($pkgInfo.Tag)"
+
+    try {
+      $tagObjectBody = ConvertTo-Json @{
+        tag = $pkgInfo.Tag
+        message = "$($pkgInfo.PackageVersion) release of $($pkgInfo.PackageId)"
+        object = $releaseSha
+        type = "commit"
+        tagger = @{
+          name = "Azure SDK Engineering System"
+          email = "azuresdkeng@microsoft.com"
+          date = Get-Date -Format "o"
+        }
+      }
+
+      $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
+
+      $refObjectBody = ConvertTo-Json @{
+        "ref" = "refs/tags/$($pkgInfo.Tag)"
+        "sha" = $outputSHA
+      }
+
+      $result = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/refs -Body $refObjectBody -Headers $headers)
+    }
+    catch 
+    {
+      $statusCode = $_.Exception.Response.StatusCode.value__
+      $statusDescription = $_.Exception.Response.StatusDescription
+
+      Write-Host "Tag creation failed with statuscode $statusCode. Reason: "
+      Write-Host $statusDescription
+      exit(1)
+    }
+  }
 }
