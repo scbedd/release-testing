@@ -61,12 +61,12 @@ function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
 {
   foreach($pkgInfo in $pkgList)
   {
-    Write-Host "Creating release $releaseTag"
+    Write-Host "Creating release $($pkgInfo.Tag)"
     $url = $releaseApiUrl
     $body = ConvertTo-Json @{
       tag_name = $pkgInfo.Tag
       target_commitish = $targetBranch
-      name = $releaseTag
+      name = $pkgInfo.Tag
       draft = $False
       prerelease = $False
     }
