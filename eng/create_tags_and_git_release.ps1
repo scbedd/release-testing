@@ -325,15 +325,15 @@ function VerifyPackages($pkgs, $pkgRepository)
 
       if((CompareSemVer $parsedPackage.PackageSemVer $parsedPackage.PublishedSemVer) -ne 1)
       {
-        Write-Host "Package $($parsedPackage.PackageId) is marked with version $($pkgVersion.versionString), but the published PyPI pkg is marked with version $($publishedVersion.versionString)."
+        Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), but the published PyPI pkg is marked with version $($parsedPackage.PublishedSemVer.VersionString)."
         Write-Host "Maybe a pkg version wasn't updated properly?"
         exit(1)
       }
 
       $pkgList += New-Object PSObject -Property @{
         PackageId = $parsedPackage.PackageId
-        PackageVersion = $pkgVersion.versionString
-        Tag = ($parsedPackage.PackageId + "_" + $pkgVersion.versionString)
+        PackageVersion = $parsedPackage.PackageVersion
+        Tag = ($parsedPackage.PackageId + "_" + $parsedPackage.PackageVersion)
       }
     }
     catch 
