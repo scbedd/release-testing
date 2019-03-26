@@ -255,6 +255,8 @@ function ParsePyPIPackage($pkg)
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
+    PackageSemVer = ToSemVer $pkgVersion
+    PublishedSemVer = ToSemVer (InvokePyPI -pkgId $pkgId)
   }
 }
 
@@ -294,22 +296,18 @@ function VerifyPackages($pkgs, $pkgRepository)
   switch($pkgRepository)
   {
     "Maven" {
-      $GetLatestVersionFn = "InvokeMaven"
       $ParsePkgInfoFn = "ParseMavenPackage"
       break
     }
     "Nuget" {
-      $GetLatestVersionFn = "InvokeNuget"
       $ParsePkgInfoFn = "ParseNugetPackage"
       break
     }
     "NPM" {
-      $GetLatestVersionFn = "InvokeNPM"
       $ParsePkgInfoFn = "ParseNPMPackage"
       break
     }
     "PyPI" {
-      $GetLatestVersionFn = "InvokePyPI"
       $ParsePkgInfoFn = "ParsePyPIPackage"
       break
     }
@@ -325,10 +323,7 @@ function VerifyPackages($pkgs, $pkgRepository)
     {
       $parsedPackage = &$ParsePkgInfoFn -pkg $pkg
 
-      $publishedVersion = ToSemVer (&$GetLatestVersionFn -pkgId $parsedPackage.PackageId)
-      $pkgVersion = ToSemVer $parsedPackage.PackageVersion
-
-      if((CompareSemVer $pkgVersion $publishedVersion) -ne 1)
+      if((CompareSemVer $parsedPackage.PackageSemVer $parsedPackage.PublishedSemVer) -ne 1)
       {
         Write-Host "Package $($parsedPackage.PackageId) is marked with version $($pkgVersion.versionString), but the published PyPI pkg is marked with version $($publishedVersion.versionString)."
         Write-Host "Maybe a pkg version wasn't updated properly?"
