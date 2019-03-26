@@ -369,6 +369,6 @@ Write-Host $pkgList
 
 # CREATE TAGS and RELEASES
 CreateTags -tagList $pkgList -apiUrl $apiUrl -releaseSha $releaseSha
-#CreateReleases -releaseTags $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+CreateReleases -releaseTags $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
 
 CleanupGitConfig
