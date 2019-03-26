@@ -45,8 +45,8 @@ function CreateTags($tagList, $apiUrl, $releaseSha)
       $outputSHA = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/tags -Body $tagObjectBody -Headers $headers).sha
 
       $refObjectBody = ConvertTo-Json @{
-        "ref": "refs/tags/$tag"
-        "sha": $outputSHA
+        "ref" = "refs/tags/$tag"
+        "sha" = $outputSHA
       }
 
       $result = (Invoke-RestMethod -Method 'Post' -Uri $apiUrl/git/refs -Body $refObjectBody -Headers $headers)
