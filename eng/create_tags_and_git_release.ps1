@@ -12,7 +12,7 @@ param (
 
   # used by Git Release
   # Expects $env:GH_TOKEN to be populated
-  $apiUrl, # API URL for github requests
+  $apiUrl, # API URL for github requests. Example: https://api.github.com/repos/Azure/azure-sdk-for-python
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
@@ -206,13 +206,22 @@ function InvokeMaven($pkgId)
 
 function ParseNPMPackage($pkg, $artifactLocation)
 {
-  $pkgId = ''
-  $pkgVersion = ''
+  # prep
+  $workFolder = "$artifactLocation/../$($pkg.Basename)"
+  $origFolder = Get-Location
+  mkdir $workFolder
+  cd $workFolder
 
-  $pkg.Basename -match $TAR_SDIST_PACKAGE_REGEX | Out-Null
+  # extract, utilize
+  tar -xzf $pkg
+  $packageJSON = Get-ChildItem -Path $workFolder -Recurse -Include "package.json" | Get-Content | ConvertFrom-Json
 
-  $pkgId = $matches['package']
-  $pkgVersion = $matches['versionstring']
+  # clean up
+  cd $origFolder
+  Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
+
+  $pkgId = $packageJSON.name
+  $pkgVersion = $packageJSON.version
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
@@ -296,8 +305,24 @@ function InvokePyPI($pkgId)
   }
 }
 
+function GetExistingTags($apiUrl){
+  try {
+    return (Invoke-RestMethod -Method 'GET' -Uri "$apiUrl/git/refs/tags"  ) | % { $_.ref.Replace("refs/tags/", "") }
+  }
+  catch 
+  {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    $statusDescription = $_.Exception.Response.StatusDescription
+
+    Write-Host "Failed to retrieve tags from repository."
+    Write-Host "StatusCode:" $statusCode
+    Write-Host "StatusDescription:" $statusDescription
+    exit(1)
+  }
+}
+
 # walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
-function VerifyPackages($pkgs, $pkgRepository, $artifactLocation)
+function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
 {
   $pkgList = [array]@()
   $GetLatestVersionFn = ''
@@ -357,11 +382,25 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation)
     }
   }
 
-  return ([array]$pkgList | Sort-Object -Property Tag -uniq)
+  $results = ([array]$pkgList | Sort-Object -Property Tag -uniq)
+
+  $existingTags = GetExistingTags($apiUrl)
+
+  $intersect = $results | ?{$existingTags -contains $_}
+
+  if($intersect.Length -gt 0)
+  {
+    $alreadyExistingTagList = $intersect -Join ", "
+    Write-Host "The following tags already exist within the git repo: $alreadyExistingTagList"
+    Write-Host "Exiting prior to creation of git releases."
+    exit(1)
+  }
+
+  return $results
 }
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File $packagePattern) -pkgRepository $pkgRepository -artifactLocation $artifactLocation
+$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File $packagePattern) -pkgRepository $pkgRepository -artifactLocation $artifactLocation -apiUrl $apiUrl
 
 Write-Host "Tags discovered from the artifacts in the artifact directory: "
 
@@ -369,5 +408,7 @@ foreach($packageInfo in $pkgList){
   Write-Host $packageInfo.Tag
 }
 
+
+
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
