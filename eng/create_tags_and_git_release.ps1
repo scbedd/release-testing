@@ -385,8 +385,7 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
   $results = ([array]$pkgList | Sort-Object -Property Tag -uniq)
 
   $existingTags = GetExistingTags($apiUrl)
-
-  $intersect = $results | ?{$existingTags -contains $_}
+  $intersect = $results | % { $_.Tag } | ?{$existingTags -contains $_}
 
   if($intersect.Length -gt 0)
   {
@@ -395,6 +394,8 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
     Write-Host "Exiting prior to creation of git releases."
     exit(1)
   }
+
+  Write-Host $results
 
   return $results
 }
