@@ -2,19 +2,23 @@ $testArray = @(
   ,@("1.0.0", "1.0.1", -1)
   ,@("1.0.1", "1.0.1rc1", -1)
   ,@("1.0.1rc1", "1.0.1", 1)
-  ,@("1.0.1rc1", "1.0.1rc2", -1)
-  ,@("1.0.1rc1", "1.0.1rc2", -1)
   ,@("2.0.0-preview.1", "2.0.0", 1)
   ,@("2.0.0", "2.0.0", 0)
-  ,@("2.0.0-preview.1", "2.0.0-preview.2", -1)
-  ,@("2.0.0-preview.2", "2.0.0-preview.1", 1)
   ,@("2.0.0-preview.2", "2.0.0", 1)
   ,@("2.0.0", "2.0.0-preview.2", -1)
+  ,@("1.0.1rc1", "1.0.1rc2", -1)
+  ,@("2.0.0-preview.1", "2.0.0-preview.2", -1)
+  ,@("2.0.0-preview.2", "2.0.0-preview.1", 1)
 )
+
+
+$VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
+$SEMVER_REGEX = "^$VERSION_REGEX$"
+$TAR_SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 
 function ToSemVer($version)
 {
-  $version -match "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?$" | Out-Null
+  $version -match $SEMVER_REGEX | Out-Null
   $major = [int]$matches['major']
   $minor = [int]$matches['minor']
   $patch = [int]$matches['patch']
@@ -25,9 +29,6 @@ function ToSemVer($version)
   }
   else
   {
-    # strip "dash"
-      # then split on .
-      # then compare them section by section INT or ordinal
     $pre = $matches['pre']
   }
 
@@ -83,40 +84,46 @@ function CompareSemVer($a, $b)
     return 1
   }
   
-  $aParts = $a.Pre -Split "."
-  $aParts = $a.Pre -Split "."
+  $aParts = $a.Pre.Split(".")
+  $bParts = $b.Pre.Split(".")
 
-  $ac = $a.Pre
-  $bc = $b.Pre
+  $minLength = [Math]::Min($aParts.Length, $bParts.Length)
 
-  $anum = 0 
-  $bnum = 0
-  $aIsNum = [Int]::TryParse($ac, [ref] $anum)
-  $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
-
-  if($aIsNum -and $bIsNum) 
-  { 
-      $result = $anum.CompareTo($bnum) 
-      if($result -ne 0)
-      {
-          return $result
-      }
-  }
-
-  if($aIsNum)
+  for($i = 0; $i -lt $minLength; $i++)
   {
+    $ac = $aParts[$i]
+    $bc = $bParts[$i]
+
+    $anum = 0 
+    $bnum = 0
+    $aIsNum = [Int]::TryParse($ac, [ref] $anum)
+    $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
+
+    if($aIsNum -and $bIsNum) 
+    { 
+        $result = $anum.CompareTo($bnum) 
+        if($result -ne 0)
+        {
+            return $result
+        }
+    }
+
+    if($aIsNum -and !$bIsNum)
+    {
       return -1
-  }
+    }
 
-  if($bIsNum)
-  {
-    return 1
-  }
-  
-  $result = [string]::CompareOrdinal($ac, $bc)
-  if($result -ne 0)
-  {
-    return $result
+    if($bIsNum -and !$aIsNum)
+    {
+      return 1
+    }
+
+    $result = [string]::CompareOrdinal($ac, $bc)
+
+    if($result -ne 0)
+    {
+      return $result
+    }
   }
 
   return $a.Pre.Length.CompareTo($b.Pre.Length)

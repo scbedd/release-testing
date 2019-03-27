@@ -81,6 +81,35 @@ function ToSemVer($version)
 # if $a is bigger, return -1
 # if $b is bigger, return 1
 # else return 0
+function ToSemVer($version)
+{
+  $version -match $SEMVER_REGEX | Out-Null
+  $major = [int]$matches['major']
+  $minor = [int]$matches['minor']
+  $patch = [int]$matches['patch']
+
+  if($matches['pre'] -eq $null)
+  {
+    $pre = ""
+  }
+  else
+  {
+    $pre = $matches['pre']
+  }
+
+  New-Object PSObject -Property @{
+    Major = $major
+    Minor = $minor
+    Patch = $patch
+    Pre = $pre
+    VersionString = $version
+    }
+}
+
+# compares two SemVer objects
+# if $a is bigger, return -1
+# if $b is bigger, return 1
+# else return 0
 function CompareSemVer($a, $b)
 {
   $result = 0
@@ -111,49 +140,57 @@ function CompareSemVer($a, $b)
   }
   
   # a is blank and b is not? b is greater
-  if($a.Pre.Length -eq 0 -and $b.Pre.Length -gt 0)
+  if($a.Pre.Length -eq 0)
   {
     return -1
   }
   
-  if($b.Pre.Length -eq 0 -and $a.Pre.Length -gt 0){
+  if($b.Pre.Length -eq 0){
     return 1
   }
   
-  $ac = $a.Pre
-  $bc = $b.Pre
+  $aParts = $a.Pre.Split(".")
+  $bParts = $b.Pre.Split(".")
 
-  $anum = 0 
-  $bnum = 0
-  $aIsNum = [Int]::TryParse($ac, [ref] $anum)
-  $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
+  $minLength = [Math]::Min($aParts.Length, $bParts.Length)
 
-  if($aIsNum -and $bIsNum) 
-  { 
-      $result = $anum.CompareTo($bnum) 
-      if($result -ne 0)
-      {
-          return $result
-      }
-  }
-
-  if($aIsNum)
+  for($i = 0; $i -lt $minLength; $i++)
   {
+    $ac = $aParts[$i]
+    $bc = $bParts[$i]
+
+    $anum = 0 
+    $bnum = 0
+    $aIsNum = [Int]::TryParse($ac, [ref] $anum)
+    $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
+
+    if($aIsNum -and $bIsNum) 
+    { 
+        $result = $anum.CompareTo($bnum) 
+        if($result -ne 0)
+        {
+            return $result
+        }
+    }
+
+    if($aIsNum -and !$bIsNum)
+    {
       return -1
+    }
+
+    if($bIsNum -and !$aIsNum)
+    {
+      return 1
+    }
+
+    $result = [string]::CompareOrdinal($ac, $bc)
+
+    if($result -ne 0)
+    {
+      return $result
+    }
   }
 
-  if($bIsNum)
-  {
-    return 1
-  }
-  
-  $result = [string]::CompareOrdinal($ac, $bc)
-  if($result -ne 0)
-  {
-    return $result
-  }
-
-  Write-Host "We are here, which means that we haven't returned yet"
   return $a.Pre.Length.CompareTo($b.Pre.Length)
 }
 
@@ -190,7 +227,7 @@ function InvokeNPM($pkgId)
   # per my reading, pre-release should be part of the same registry now
   $npmVersion = (npm show $pkgId version)
 
-  if ($LastExitCode -eq 1)
+  if ($LastExitCode -ne 0)
   {
     # ensure it isn't a connectivity failure before returning 0.0.0
     npm ping
