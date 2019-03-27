@@ -1,0 +1,2 @@
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository PyPI -packagePattern "*.zip"
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository NPM -packagePattern "*.tgz"

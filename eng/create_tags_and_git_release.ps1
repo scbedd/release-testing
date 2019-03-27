@@ -1,7 +1,5 @@
 # ASSUMPTIONS
 # * that `npm` cli is present for querying available npm packages
-# * that `maven` cli is present to query maven packages
-# * that `nuget` cli is present to query nuget packages
 
 param (
   # used by VerifyPackages
@@ -18,7 +16,9 @@ param (
   $targetBranch = "master" # default to master, but should be able to set where the tags end up
 )
 
-$SEMVER_REGEX = "^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?$"
+$VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
+$SEMVER_REGEX = "^$VERSION_REGEX$"
+$TAR_SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 
 function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
 {
@@ -169,19 +169,13 @@ function InvokeMaven($pkgId)
 
 function ParseNPMPackage($pkg, $artifactLocation)
 {
-  $extension = $pkg.Extension
   $pkgId = ''
   $pkgVersion = ''
 
-  $workFolderLocation = "$artifactLocation/../work"
+  $pkg.Basename -match $TAR_SDIST_PACKAGE_REGEX | Out-Null
 
-  if($pkg.Extension -eq ".tgz")
-  {
-
-  }
-  else {
-    return $null
-  }
+  $pkgId = $matches['package']
+  $pkgVersion = $matches['versionstring']
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
@@ -193,26 +187,24 @@ function ParseNPMPackage($pkg, $artifactLocation)
 
 function InvokeNPM($pkgId)
 {
-  try {
-    throw "ARGH"
-  }
-  catch 
+  # per my reading, pre-release should be part of the same registry now
+  $npmVersion = (npm show $pkgId version)
+
+  if ($LastExitCode -eq 1)
   {
-    $statusCode = $_.Exception.Response.StatusCode.value__
-    $statusDescription = $_.Exception.Response.StatusDescription
-    
-    # if this is 404ing, then this pkg has never been published before
-    if($statusCode -eq 404)
+    # ensure it isn't a connectivity failure before returning 0.0.0
+    npm ping
+
+    if ($LastExitCode -eq 0)
     {
-      # so we return a simple version specifier
       return "0.0.0"
     }
 
-    Write-Host "PyPI Invocation failed:"
-    Write-Host "StatusCode:" $statusCode
-    Write-Host "StatusDescription:" $statusDescription
+    Write-Host "Could not find a deployed version of $pkgId, and NPM connectivity check failed."
     exit(1)
   }
+
+  return $npmVersion
 }
 
 function ParseNugetPackage($pkg, $artifactLocation)
@@ -228,25 +220,10 @@ function InvokeNuget($pkgId)
 # examines a python deployment artifact and greps out the version and id
 function ParsePyPIPackage($pkg, $artifactLocation)
 {
-  $extension = $pkg.Extension
-  $pkgId = ''
-  $pkgVersion = ''
+  $pkg.Basename -match $TAR_SDIST_PACKAGE_REGEX | Out-Null
 
-  if($pkg.Extension -eq ".whl")
-  {
-    # Note that this assumption should be safe because python's build tools don't
-    # generate super difficult to parse outputs. 
-    # Package azure-template along with version specifier 0.2.8-preview.2
-    # translated to the following wheel format: azure_template-0.2.8rc2-py2.py3-none-any.whl
-    # Note the "8-preview.2" -> "8rc2" translation
-    $nameParts = $pkg.Basename -Split "-"
-
-    $pkgId = $nameParts[0].Replace("_", "-")
-    $pkgVersion = $nameParts[1]
-  }
-  else {
-    return $null
-  }
+  $pkgId = $matches['package']
+  $pkgVersion = $matches['versionstring']
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
@@ -356,4 +333,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
