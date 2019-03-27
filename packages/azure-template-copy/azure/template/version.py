@@ -1,2 +1,2 @@
 # matches SEMVER
-VERSION = "0.2.8-preview.4"
+VERSION = "0.3.0"

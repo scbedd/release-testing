@@ -1,7 +1,26 @@
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository PyPI -packagePattern "*.zip"
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha f2c99737e2263483ed931d0707ea6d17a2469ca1 -apiUrl "https://api.github.com/repos/scbedd/release-testing" -targetBranch "master" -pkgRepository PyPI -packagePattern "*.zip"
 
 
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository NPM -packagePattern "*.tgz"
 
 
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages_weird -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository NPM -packagePattern "*.tgz"
+
+
+
+-artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._azure-sdk-for-python.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+
+
+
+-artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+
+
+
+RELEASE-TESTING
+-artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._Release-Test-Prep.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+
+PYTHON
+-artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._azure-sdk-for-python.SourceVersion) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+
+JS
+-artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
