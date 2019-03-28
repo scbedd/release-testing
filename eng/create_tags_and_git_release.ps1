@@ -84,7 +84,7 @@ function ParseNPMPackage($pkg, $artifactLocation)
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
-    Deployable = !IsNPMPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion
+    Deployable = !(IsNPMPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
   }
 }
 
@@ -134,7 +134,7 @@ function ParsePyPIPackage($pkg, $artifactLocation)
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
-    Deployable = !IsPythonPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion
+    Deployable = !(IsPythonPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
   }
 }
 
@@ -144,7 +144,10 @@ function ParsePyPIPackage($pkg, $artifactLocation)
 function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
 {
   try {
-    return (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$pkgId/$pkgVersion/json").info.version
+    $existingVersion = (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$pkgId/$pkgVersion/json").info.version
+
+    # if existingVersion exists, then it's already been published
+    return $True
   }
   catch 
   {
@@ -155,7 +158,7 @@ function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
     if($statusCode -eq 404)
     {
       # so we return a simple version specifier
-      return $true
+      return $False
     }
 
     Write-Host "PyPI Invocation failed:"
