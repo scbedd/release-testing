@@ -236,6 +236,8 @@ function InvokeNPM($pkgId)
   # per my reading, pre-release should be part of the same registry now
   $npmVersion = (npm show $pkgId version)
 
+  return "0.0.0"
+
   if ($LastExitCode -ne 0)
   {
     # ensure it isn't a connectivity failure before returning 0.0.0
@@ -307,6 +309,7 @@ function InvokePyPI($pkgId)
 
 function GetExistingTags($apiUrl){
   try {
+    return @()
     return (Invoke-RestMethod -Method 'GET' -Uri "$apiUrl/git/refs/tags"  ) | % { $_.ref.Replace("refs/tags/", "") }
   }
   catch 
@@ -410,4 +413,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch

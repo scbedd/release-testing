@@ -16,6 +16,10 @@ $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9
 $SEMVER_REGEX = "^$VERSION_REGEX$"
 $TAR_SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 
+# compares two SemVer objects
+# if $a is bigger, return -1
+# if $b is bigger, return 1
+# else return 0
 function ToSemVer($version)
 {
   $version -match $SEMVER_REGEX | Out-Null
@@ -128,6 +132,7 @@ function CompareSemVer($a, $b)
 
   return $a.Pre.Length.CompareTo($b.Pre.Length)
 }
+
 
 foreach($testSet in $testArray)
 {
