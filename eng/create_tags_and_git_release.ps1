@@ -52,154 +52,12 @@ function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
   }
 }
 
-function ToSemVer($version)
-{
-  $version -match $SEMVER_REGEX | Out-Null
-  $major = [int]$matches['major']
-  $minor = [int]$matches['minor']
-  $patch = [int]$matches['patch']
-
-  if($matches['pre'] -eq $null)
-  {
-    $pre = ""
-  }
-  else
-  {
-    $pre = $matches['pre']
-  }
-
-  New-Object PSObject -Property @{
-    Major = $major
-    Minor = $minor
-    Patch = $patch
-    Pre = $pre
-    VersionString = $version
-    }
-}
-
-# compares two SemVer objects
-# if $a is bigger, return -1
-# if $b is bigger, return 1
-# else return 0
-function ToSemVer($version)
-{
-  $version -match $SEMVER_REGEX | Out-Null
-  $major = [int]$matches['major']
-  $minor = [int]$matches['minor']
-  $patch = [int]$matches['patch']
-
-  if($matches['pre'] -eq $null)
-  {
-    $pre = ""
-  }
-  else
-  {
-    $pre = $matches['pre']
-  }
-
-  New-Object PSObject -Property @{
-    Major = $major
-    Minor = $minor
-    Patch = $patch
-    Pre = $pre
-    VersionString = $version
-    }
-}
-
-# compares two SemVer objects
-# if $a is bigger, return -1
-# if $b is bigger, return 1
-# else return 0
-function CompareSemVer($a, $b)
-{
-  $result = 0
-
-  $result =  $a.Major.CompareTo($b.Major)
-  if($result -ne 0)
-  {
-    return $result
-  }
-
-  $result = $a.Minor.CompareTo($b.Minor)
-  if($result -ne 0)
-  {
-    return $result
-  }
-
-  # compare the patch before the preview identifiers
-  $result = $a.Patch.CompareTo($b.Patch)
-  if($result -ne 0)
-  {
-    return $result
-  }
-
-  # if they have 0 length, they are equivalent
-  if($a.Pre.Length -eq 0 -and $b.Pre.Length -eq 0) 
-  {
-    return 0
-  }
-  
-  # a is blank and b is not? b is greater
-  if($a.Pre.Length -eq 0)
-  {
-    return -1
-  }
-  
-  if($b.Pre.Length -eq 0){
-    return 1
-  }
-  
-  $aParts = $a.Pre.Split(".")
-  $bParts = $b.Pre.Split(".")
-
-  $minLength = [Math]::Min($aParts.Length, $bParts.Length)
-
-  for($i = 0; $i -lt $minLength; $i++)
-  {
-    $ac = $aParts[$i]
-    $bc = $bParts[$i]
-
-    $anum = 0 
-    $bnum = 0
-    $aIsNum = [Int]::TryParse($ac, [ref] $anum)
-    $bIsNum = [Int]::TryParse($bc, [ref] $bnum)
-
-    if($aIsNum -and $bIsNum) 
-    { 
-        $result = $anum.CompareTo($bnum) 
-        if($result -ne 0)
-        {
-            return $result
-        }
-    }
-
-    if($aIsNum -and !$bIsNum)
-    {
-      return -1
-    }
-
-    if($bIsNum -and !$aIsNum)
-    {
-      return 1
-    }
-
-    $result = [string]::CompareOrdinal($ac, $bc)
-
-    if($result -ne 0)
-    {
-      return $result
-    }
-  }
-
-  return $a.Pre.Length.CompareTo($b.Pre.Length)
-}
-
 function ParseMavenPackage($pkg, $artifactLocation)
 {
   # todo
 }
 
-function InvokeMaven($pkgId)
+function IsMavenPackageVersionPublished($pkgId, $pkgVersion)
 {
   # todo
 }
@@ -226,17 +84,17 @@ function ParseNPMPackage($pkg, $artifactLocation)
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
-    PackageSemVer = ToSemVer $pkgVersion
-    PublishedSemVer = ToSemVer (InvokeNPM -pkgId $pkgId)
+    Deployable = !IsNPMPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion
   }
 }
 
-function InvokeNPM($pkgId)
+# checks a package id and version against NPM. If the version already 
+# has been published to NPM, return false, else return true 
+function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 {
-  # per my reading, pre-release should be part of the same registry now
-  $npmVersion = (npm show $pkgId version)
+  $npmVersions = (npm show $pkgId versions)
 
-  return "0.0.0"
+  return $npmVersions.Contains($pkgVersion)
 
   if ($LastExitCode -ne 0)
   {
@@ -245,7 +103,7 @@ function InvokeNPM($pkgId)
 
     if ($LastExitCode -eq 0)
     {
-      return "0.0.0"
+      return $True
     }
 
     Write-Host "Could not find a deployed version of $pkgId, and NPM connectivity check failed."
@@ -260,7 +118,7 @@ function ParseNugetPackage($pkg, $artifactLocation)
   # todo
 }
 
-function InvokeNuget($pkgId)
+function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
 {
   # todo
 }
@@ -276,17 +134,17 @@ function ParsePyPIPackage($pkg, $artifactLocation)
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
-    PackageSemVer = ToSemVer $pkgVersion
-    PublishedSemVer = ToSemVer (InvokePyPI -pkgId $pkgId)
+    Deployable = !IsPythonPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion
   }
 }
 
-# invokes PYPI, returns the existing version of a pkg.
-# if it can't find that pkg, returns version 0.0.0
-function InvokePyPI($pkgId)
+
+# checks a package id and version against PyPI. If the version already 
+# has been published to PyPI, return false, else return true 
+function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
 {
   try {
-    return (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$pkgId/json").info.version
+    return (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$pkgId/$pkgVersion/json").info.version
   }
   catch 
   {
@@ -297,7 +155,7 @@ function InvokePyPI($pkgId)
     if($statusCode -eq 404)
     {
       # so we return a simple version specifier
-      return "0.0.0"
+      return $true
     }
 
     Write-Host "PyPI Invocation failed:"
@@ -309,7 +167,6 @@ function InvokePyPI($pkgId)
 
 function GetExistingTags($apiUrl){
   try {
-    return @()
     return (Invoke-RestMethod -Method 'GET' -Uri "$apiUrl/git/refs/tags"  ) | % { $_.ref.Replace("refs/tags/", "") }
   }
   catch 
@@ -365,9 +222,9 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
         continue
       }
 
-      if((CompareSemVer $parsedPackage.PackageSemVer $parsedPackage.PublishedSemVer) -ne 1)
+      if($parsedPackage.Deployable -ne $True)
       {
-        Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), but the published PyPI pkg is marked with version $($parsedPackage.PublishedSemVer.VersionString)."
+        Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), the version $($parsedPackage.PackageVersion) has already been deployed to the target repository."
         Write-Host "Maybe a pkg version wasn't updated properly?"
         exit(1)
       }
@@ -413,4 +270,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
