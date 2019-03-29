@@ -157,7 +157,28 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 
 function ParseNugetPackage($pkg, $artifactLocation)
 {
-  # todo
+  # prep
+  $workFolder = "$artifactLocation/../$($pkg.Basename)"
+  $origFolder = Get-Location
+  mkdir $workFolder
+  cd $workFolder
+
+  # extract, utilize
+  Expand-Archive -Path $pkg -DestinationPath $workFolder
+  [xml] $packageXML = Get-ChildItem -Path "$workFolder/*.nuspec" | Get-Content
+
+  # clean up
+  cd $origFolder
+  Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
+
+  $pkgId = $packageXML.package.metadata.id
+  $pkgVersion = $packageXML.package.metadata.version
+
+  return New-Object PSObject -Property @{
+    PackageId = $pkgId
+    PackageVersion = $pkgVersion
+    Deployable = !(IsNugetPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
+  }
 }
 
 function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
