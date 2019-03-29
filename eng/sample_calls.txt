@@ -4,29 +4,42 @@
 
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages_weird -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository NPM -packagePattern "*.tgz"
 
-
-
 -artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._azure-sdk-for-python.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
-
 -artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+
+
 
 LOCAL PYTHON
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha f2c99737e2263483ed931d0707ea6d17a2469ca1 -apiUrl "https://api.github.com/repos/scbedd/release-testing" -targetBranch "master" -pkgRepository PyPI -packagePattern "*.zip"
 
-local js
+LOCAL js_packages
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages_weird -releaseSha releaseSha -apiUrl "https://api.github.com/repos/scbedd/release-testing" -targetBranch "master" -pkgRepository NPM -packagePattern "*.tgz"
-
-$(System.ArtifactsDirectory)/../release-testing/eng/create_tags_and_git_release.ps1
 
 RELEASE-TESTING
 -artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._Release-Test-Prep.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 WARDEN 
--artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._azure-sdk-tools-warden.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory)/_azure-sdk-tools-warden -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._azure-sdk-tools-warden.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 PYTHON
--artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._azure-sdk-for-python.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory)/_artifacts -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 JS
--artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory)/_artifacts -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+
+LOCAL JAVA
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/java_packages -releaseSha releaseSha -apiUrl "https://api.github.com/repos/scbedd/azure-sdk-for-java" -targetBranch "master" -pkgRepository Maven -packagePattern "*.pom"
+
+JAVA
+-artifactLocation $(System.ArtifactsDirectory)/_artifacts -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+
+LOCAL NUGET
+
+
+NUGET
+
+
+
+
+

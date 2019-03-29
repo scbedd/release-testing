@@ -1,0 +1,20 @@
+
+
+Get Service index using https://api.nuget.org/v3/index.json
+
+Then, type @type": "SearchQueryService"
+
+    {
+      "@id": "https://api-v2v3search-0.nuget.org/query",
+      "@type": "SearchQueryService",
+      "comment": "Query endpoint of NuGet Search service (primary)"
+    },
+
+
+Then, once you have that, 
+
+
+https://api.nuget.org/v3/catalog0/index.json
+
+
+

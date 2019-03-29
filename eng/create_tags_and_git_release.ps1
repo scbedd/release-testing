@@ -54,12 +54,54 @@ function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
 
 function ParseMavenPackage($pkg, $artifactLocation)
 {
-  # todo
+  [xml]$contentXML = Get-Content $pkg
+  
+  $pkgId = $contentXML.project.artifactId
+  $pkgVersion = $contentXML.project.version
+  $groupId = if ($contentXML.project.groupId -eq $null) { $contentXML.project.parent.groupId } else { $contentXML.project.groupId }
+
+  # if it's a snapshot. return $null (as we don't want to create tags for this, but we also don't want to fail)
+  if($pkgVersion.Contains("SNAPSHOT")){
+    return $null
+  }
+
+  return New-Object PSObject -Property @{
+    PackageId = $pkgId
+    PackageVersion = $pkgVersion
+    Deployable = !(IsMavenPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion -groupId $groupId.Replace(".", "/"))
+  }
 }
 
-function IsMavenPackageVersionPublished($pkgId, $pkgVersion)
+function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
 {
-  # todo
+  try {
+    
+    $uri = "https://oss.sonatype.org/content/repositories/releases/$groupId/$pkgId/$pkgVersion/$pkgId-$pkgVersion.pom"
+    $pomContent = Invoke-RestMethod -Method 'GET' -Uri $uri
+
+    if($pomContent -ne $null -or $pomContent.Length -eq 0)
+    {
+      return $true
+    }
+    else 
+    {
+      return $false
+    }
+  }
+  catch
+  {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    $statusDescription = $_.Exception.Response.StatusDescription
+  
+    if($statusCode -eq 404)
+    {
+      return $false
+    }
+
+    Write-Host "VersionCheck to maven for packageId $pkgId failed with statuscode $statusCode"
+    Write-Host $statusDescription
+    exit(1)
+  }
 }
 
 function ParseNPMPackage($pkg, $artifactLocation)
@@ -258,6 +300,8 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
     exit(1)
   }
 
+  Write-Host $results
+
   return $results
 }
 
@@ -271,4 +315,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
