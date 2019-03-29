@@ -258,13 +258,11 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
     exit(1)
   }
 
-  Write-Host $results
-
   return $results
 }
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgs (Get-ChildItem $artifactLocation\* -Recurse -File -Include $packagePattern) -pkgRepository $pkgRepository -artifactLocation $artifactLocation -apiUrl $apiUrl
+$pkgList = VerifyPackages -pkgs (Get-ChildItem -Path $artifactLocation -Include $packagePattern -Recurse -File) -pkgRepository $pkgRepository -artifactLocation $artifactLocation -apiUrl $apiUrl
 
 Write-Host "Tags discovered from the artifacts in the artifact directory: "
 
@@ -273,4 +271,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
