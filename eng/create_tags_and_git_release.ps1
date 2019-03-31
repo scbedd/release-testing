@@ -183,7 +183,32 @@ function ParseNugetPackage($pkg, $artifactLocation)
 
 function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
 {
-  # todo
+
+  $nugetUri = "https://api.nuget.org/v3-flatcontainer/$($pkgId.ToLowerInvariant())/index.json"
+
+  try {
+    $nugetVersions = (Invoke-RestMethod -Method "GET" -Uri ("$packageBase" + "azure.base/index.json"))
+
+    return $nugetVersions.Contains($pkgVersion)
+  }
+  catch 
+  {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    $statusDescription = $_.Exception.Response.StatusDescription
+    
+    # if this is 404ing, then this pkg has never been published before
+    if($statusCode -eq 404)
+    {
+      # so we return a simple version specifier
+      return $False
+    }
+
+    Write-Host "Nuget Invocation failed:"
+    Write-Host "StatusCode:" $statusCode
+    Write-Host "StatusDescription:" $statusDescription
+    exit(1)
+  }
+
 }
 
 # examines a python deployment artifact and greps out the version and id
