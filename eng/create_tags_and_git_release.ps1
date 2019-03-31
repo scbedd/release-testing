@@ -187,9 +187,9 @@ function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
   $nugetUri = "https://api.nuget.org/v3-flatcontainer/$($pkgId.ToLowerInvariant())/index.json"
 
   try {
-    $nugetVersions = (Invoke-RestMethod -Method "GET" -Uri ("$packageBase" + "azure.base/index.json"))
+    $nugetVersions = Invoke-RestMethod -Method "GET" -Uri $nugetUri
 
-    return $nugetVersions.Contains($pkgVersion)
+    return $nugetVersions.versions.Contains($pkgVersion)
   }
   catch 
   {
