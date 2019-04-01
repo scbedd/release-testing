@@ -1,26 +1,27 @@
 # ASSUMPTIONS
 # * that `npm` cli is present for querying available npm packages
+# * that an environment variable $env:GH_TOKEN is populated with the appropriate PAT to allow pushing of github releases
 
 param (
   # used by VerifyPackages
   $artifactLocation, # the root of the artifact folder. DevOps $(System.ArtifactsDirectory)
+  $workingDirectory, # directory that package artifacts will be extracted into for examination (if necessary) 
   $pkgRepository, # used to indicate destination against which we will check the existing version.
-  $packagePattern, # the file glob that will be used to collect the packages in the artifact folder. Example: *.whl
 
   # used by CreateTags
   $releaseSha, # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
 
   # used by Git Release
-  # Expects $env:GH_TOKEN to be populated
-  $apiUrl, # API URL for github requests. Example: https://api.github.com/repos/Azure/azure-sdk-for-python
-  $targetBranch = "master" # default to master, but should be able to set where the tags end up
+  $repoOwner, # the owning organization of the repository. EG "Azure"
+  $repoName # the name of the repository. EG "azure-sdk-for-java"
 )
 
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
 $SEMVER_REGEX = "^$VERSION_REGEX$"
 $TAR_SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 
-function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
+# posts a github release for each item of the pkgList variable. SilentlyContinue
+function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
 {
   foreach($pkgInfo in $pkgList)
   {
@@ -28,7 +29,7 @@ function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
     $url = $releaseApiUrl
     $body = ConvertTo-Json @{
       tag_name = $pkgInfo.Tag
-      target_commitish = $targetBranch
+      target_commitish = $releaseSha
       name = $pkgInfo.Tag
       draft = $False
       prerelease = $False
@@ -52,7 +53,7 @@ function CreateReleases($pkgList, $releaseApiUrl, $targetBranch)
   }
 }
 
-function ParseMavenPackage($pkg, $artifactLocation)
+function ParseMavenPackage($pkg, $workingDirectory)
 {
   [xml]$contentXML = Get-Content $pkg
   
@@ -72,6 +73,7 @@ function ParseMavenPackage($pkg, $artifactLocation)
   }
 }
 
+# returns the maven (really sonatype) publish status of a package id and version.
 function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
 {
   try {
@@ -93,6 +95,7 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
     $statusCode = $_.Exception.Response.StatusCode.value__
     $statusDescription = $_.Exception.Response.StatusDescription
   
+    # if this is 404ing, then this pkg has never been published before
     if($statusCode -eq 404)
     {
       return $false
@@ -104,10 +107,10 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
   }
 }
 
-function ParseNPMPackage($pkg, $artifactLocation)
+function ParseNPMPackage($pkg, $workingDirectory)
 {
   # prep
-  $workFolder = "$artifactLocation/../$($pkg.Basename)"
+  $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
   mkdir $workFolder
   cd $workFolder
@@ -130,13 +133,10 @@ function ParseNPMPackage($pkg, $artifactLocation)
   }
 }
 
-# checks a package id and version against NPM. If the version already 
-# has been published to NPM, return false, else return true 
+# returns the npm publish status of a package id and version.
 function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 {
   $npmVersions = (npm show $pkgId versions)
-
-  return $npmVersions.Contains($pkgVersion)
 
   if ($LastExitCode -ne 0)
   {
@@ -152,22 +152,20 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
     exit(1)
   }
 
-  return $npmVersion
+  return $npmVersions.Contains($pkgVersion)
 }
 
-function ParseNugetPackage($pkg, $artifactLocation)
+# Parse out package publishing information given a python sdist of ZIP format.
+function ParseNugetPackage($pkg, $workingDirectory)
 {
-  # prep
-  $workFolder = "$artifactLocation/../$($pkg.Basename)"
+  $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
   mkdir $workFolder
   cd $workFolder
 
-  # extract, utilize
   Expand-Archive -Path $pkg -DestinationPath $workFolder
   [xml] $packageXML = Get-ChildItem -Path "$workFolder/*.nuspec" | Get-Content
 
-  # clean up
   cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
@@ -181,6 +179,7 @@ function ParseNugetPackage($pkg, $artifactLocation)
   }
 }
 
+# returns the nuget publish status of a package id and version. 
 function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
 {
 
@@ -199,7 +198,6 @@ function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
     # if this is 404ing, then this pkg has never been published before
     if($statusCode -eq 404)
     {
-      # so we return a simple version specifier
       return $False
     }
 
@@ -211,8 +209,8 @@ function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
 
 }
 
-# examines a python deployment artifact and greps out the version and id
-function ParsePyPIPackage($pkg, $artifactLocation)
+# Parse out package publishing information given a python sdist of ZIP format.
+function ParsePyPIPackage($pkg, $workingDirectory)
 {
   $pkg.Basename -match $TAR_SDIST_PACKAGE_REGEX | Out-Null
 
@@ -227,8 +225,7 @@ function ParsePyPIPackage($pkg, $artifactLocation)
 }
 
 
-# checks a package id and version against PyPI. If the version already 
-# has been published to PyPI, return false, else return true 
+# returns the pypi publish status of a package id and version.
 function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
 {
   try {
@@ -245,7 +242,6 @@ function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
     # if this is 404ing, then this pkg has never been published before
     if($statusCode -eq 404)
     {
-      # so we return a simple version specifier
       return $False
     }
 
@@ -256,6 +252,7 @@ function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
   }
 }
 
+# retrieves the list of all tags that exist on the target repository
 function GetExistingTags($apiUrl){
   try {
     return (Invoke-RestMethod -Method 'GET' -Uri "$apiUrl/git/refs/tags"  ) | % { $_.ref.Replace("refs/tags/", "") }
@@ -273,28 +270,32 @@ function GetExistingTags($apiUrl){
 }
 
 # walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
-function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
+function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $apiUrl)
 {
   $pkgList = [array]@()
-  $GetLatestVersionFn = ''
   $ParsePkgInfoFn = ''
+  $packagePattern = ''
 
   switch($pkgRepository)
   {
     "Maven" {
       $ParsePkgInfoFn = "ParseMavenPackage"
+      $packagePattern = "*.pom"
       break
     }
     "Nuget" {
       $ParsePkgInfoFn = "ParseNugetPackage"
+      $packagePattern = "*.nupkg"
       break
     }
     "NPM" {
       $ParsePkgInfoFn = "ParseNPMPackage"
+      $packagePattern = "*.tgz"
       break
     }
     "PyPI" {
       $ParsePkgInfoFn = "ParsePyPIPackage"
+      $packagePattern = "*.zip"
       break
     }
     default { 
@@ -303,11 +304,13 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
     }
   }
 
+  $pkgs = (Get-ChildItem -Path $artifactLocation -Include $packagePattern -Recurse -File) 
+
   foreach ($pkg in $pkgs)
   {
     try 
     {
-      $parsedPackage = &$ParsePkgInfoFn -pkg $pkg -artifactLocation $artifactLocation
+      $parsedPackage = &$ParsePkgInfoFn -pkg $pkg -workingDirectory $workingDirectory
 
       if($parsedPackage -eq $null){
         continue
@@ -351,14 +354,16 @@ function VerifyPackages($pkgs, $pkgRepository, $artifactLocation, $apiUrl)
   return $results
 }
 
-# VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgs (Get-ChildItem -Path $artifactLocation -Include $packagePattern -Recurse -File) -pkgRepository $pkgRepository -artifactLocation $artifactLocation -apiUrl $apiUrl
+$apiUrl = "https://api.github.com/repos/$repoOwner/$repoName"
 
-Write-Host "Tags discovered from the artifacts in the artifact directory: "
+# VERIFY PACKAGES
+$pkgList = VerifyPackages -pkgRepository $pkgRepository -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $apiUrl
+
+Write-Host "Given the visible artifacts, github releases will be created for the following tags:"
 
 foreach($packageInfo in $pkgList){
   Write-Host $packageInfo.Tag
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -targetBranch $targetBranch
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
