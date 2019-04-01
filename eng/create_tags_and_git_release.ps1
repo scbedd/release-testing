@@ -20,7 +20,7 @@ $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9
 $SEMVER_REGEX = "^$VERSION_REGEX$"
 $TAR_SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 
-# posts a github release for each item of the pkgList variable. SilentlyContinue
+# Posts a github release for each item of the pkgList variable. SilentlyContinue
 function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
 {
   foreach($pkgInfo in $pkgList)
@@ -53,6 +53,7 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
   }
 }
 
+# Parse out package publishing information given a maven POM file
 function ParseMavenPackage($pkg, $workingDirectory)
 {
   [xml]$contentXML = Get-Content $pkg
@@ -73,7 +74,7 @@ function ParseMavenPackage($pkg, $workingDirectory)
   }
 }
 
-# returns the maven (really sonatype) publish status of a package id and version.
+# Returns the maven (really sonatype) publish status of a package id and version.
 function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
 {
   try {
@@ -107,6 +108,7 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
   }
 }
 
+# Parse out package publishing information given a .tgz npm artifact
 function ParseNPMPackage($pkg, $workingDirectory)
 {
   # prep
@@ -133,7 +135,7 @@ function ParseNPMPackage($pkg, $workingDirectory)
   }
 }
 
-# returns the npm publish status of a package id and version.
+# Returns the npm publish status of a package id and version.
 function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 {
   $npmVersions = (npm show $pkgId versions)
@@ -179,7 +181,7 @@ function ParseNugetPackage($pkg, $workingDirectory)
   }
 }
 
-# returns the nuget publish status of a package id and version. 
+# Returns the nuget publish status of a package id and version. 
 function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
 {
 
@@ -225,7 +227,7 @@ function ParsePyPIPackage($pkg, $workingDirectory)
 }
 
 
-# returns the pypi publish status of a package id and version.
+# Returns the pypi publish status of a package id and version.
 function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
 {
   try {
@@ -252,7 +254,7 @@ function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
   }
 }
 
-# retrieves the list of all tags that exist on the target repository
+# Retrieves the list of all tags that exist on the target repository
 function GetExistingTags($apiUrl){
   try {
     return (Invoke-RestMethod -Method 'GET' -Uri "$apiUrl/git/refs/tags"  ) | % { $_.ref.Replace("refs/tags/", "") }
@@ -269,7 +271,7 @@ function GetExistingTags($apiUrl){
   }
 }
 
-# walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
+# Walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
 function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $apiUrl)
 {
   $pkgList = [array]@()
@@ -366,4 +368,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
