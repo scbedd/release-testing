@@ -111,17 +111,14 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
 # Parse out package publishing information given a .tgz npm artifact
 function ParseNPMPackage($pkg, $workingDirectory)
 {
-  # prep
   $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
   mkdir $workFolder
   cd $workFolder
 
-  # extract, utilize
   tar -xzf $pkg
   $packageJSON = Get-ChildItem -Path $workFolder -Recurse -Include "package.json" | Get-Content | ConvertFrom-Json
 
-  # clean up
   cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
@@ -142,7 +139,6 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 
   if ($LastExitCode -ne 0)
   {
-    # ensure it isn't a connectivity failure before returning 0.0.0
     npm ping
 
     if ($LastExitCode -eq 0)
