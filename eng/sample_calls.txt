@@ -49,7 +49,6 @@ ReleaseSha $(Release.Artifacts._azure-sdk-tools-warden.SourceVersion)
 RepoOwner Azure
 RepoName azure-sdk-for-java
 
-ParameterList
--artifactLocation $(ArtifactLocation) -workingDirectory $(WorkingDirectory) -packageRepository $(PackageRepository) -releaseSha $(Release.Artifacts._azure-sdk-tools-warden.SourceVersion)  -repoOwner $(RepoOwner) -repoName $(RepoName)
-
+Copy this Parameter List
+-artifactLocation $(Artifacts) -workingDirectory $(WorkingDirectory) -packageRepository $(PackageRepository) -releaseSha $(ReleaseSha) -repoOwner $(RepoOwner) -repoName $(RepoName)
 
