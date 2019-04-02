@@ -52,3 +52,8 @@ RepoName azure-sdk-for-java
 Copy this Parameter List
 -artifactLocation $(Artifacts) -workingDirectory $(WorkingDirectory) -packageRepository $(PackageRepository) -releaseSha $(ReleaseSha) -repoOwner $(RepoOwner) -repoName $(RepoName)
 
+Default for working directory:
+$(System.DefaultWorkingDirectory)/../
+
+
+

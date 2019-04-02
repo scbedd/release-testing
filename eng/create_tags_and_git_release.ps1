@@ -7,7 +7,7 @@ param (
   $artifactLocation, # the root of the artifact folder. DevOps $(System.ArtifactsDirectory)
   $workingDirectory, # directory that package artifacts will be extracted into for examination (if necessary) 
   $packageRepository, # used to indicate destination against which we will check the existing version.
-
+                      # valid options: PyPI, Nuget, NPM, Maven
   # used by CreateTags
   $releaseSha, # the SHA for the artifacts. DevOps: $(Release.Artifacts.<artifactAlias>.SourceVersion)
 
@@ -19,6 +19,8 @@ param (
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
 $SEMVER_REGEX = "^$VERSION_REGEX$"
 $TAR_SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
+$NUGET_PACKAGE_REGEX = "^(?<package>.*)\.(?<versionstring>$VERSION_REGEX$)"
+
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
 function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
@@ -153,7 +155,7 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
   return $npmVersions.Contains($pkgVersion)
 }
 
-# Parse out package publishing information given a python sdist of ZIP format.
+# Parse out package publishing information given a nupkg ZIP format.
 function ParseNugetPackage($pkg, $workingDirectory)
 {
   $workFolder = "$workingDirectory$($pkg.Basename)"
@@ -355,7 +357,7 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
 $apiUrl = "https://api.github.com/repos/$repoOwner/$repoName"
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgRepository $pkgRepository -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $apiUrl
+$pkgList = VerifyPackages -pkgRepository $packageRepository -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $apiUrl
 
 Write-Host "Given the visible artifacts, github releases will be created for the following tags:"
 
