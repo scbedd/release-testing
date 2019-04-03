@@ -19,6 +19,7 @@ param (
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
 $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 $NUGET_PACKAGE_REGEX = "^(?<package>.*?)\.(?<versionstring>(?:\.?[0-9]+){3,}(?:[\-\.\S]+)?)\.nupkg$"
+$API_URL = "https://api.github.com/repos/$repoOwner/$repoName"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
 function CreateReleases($pkgList, $releaseApiUrl, $releaseSha, $workingDirectory)
@@ -348,47 +349,16 @@ function GetExistingTags($apiUrl){
 }
 
 # Walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
-function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $apiUrl)
+function VerifyPackages($scriptConfig, $artifactLocation, $workingDirectory, $apiUrl)
 {
   $pkgList = [array]@()
-  $ParsePkgInfoFn = ''
-  $packagePattern = ''
-
-  switch($pkgRepository)
-  {
-    "Maven" {
-      $ParsePkgInfoFn = "ParseMavenPackage"
-      $packagePattern = "*.pom"
-      break
-    }
-    "Nuget" {
-      $ParsePkgInfoFn = "ParseNugetPackage"
-      $packagePattern = "*.nupkg"
-      break
-    }
-    "NPM" {
-      $ParsePkgInfoFn = "ParseNPMPackage"
-      $packagePattern = "*.tgz"
-      break
-    }
-    "PyPI" {
-      $ParsePkgInfoFn = "ParsePyPIPackage"
-      $packagePattern = "*.zip"
-      break
-    }
-    default { 
-      Write-Host "Unrecognized Language: $language"
-      exit(1)
-    }
-  }
-
-  $pkgs = (Get-ChildItem -Path $artifactLocation -Include $packagePattern -Recurse -File) 
+  $pkgs = (Get-ChildItem -Path $artifactLocation -Include $scriptConfig.PackagePattern -Recurse -File) 
 
   foreach ($pkg in $pkgs)
   {
     try 
     {
-      $parsedPackage = &$ParsePkgInfoFn -pkg $pkg -workingDirectory $workingDirectory
+      $parsedPackage = &$scriptConfig.ParsePkgInfoFn -pkg $pkg -workingDirectory $workingDirectory
 
       if($parsedPackage -eq $null){
         continue
@@ -433,10 +403,49 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
   return $results
 }
 
-$apiUrl = "https://api.github.com/repos/$repoOwner/$repoName"
+function GetConfigurationObject($pkgRepository)
+{
+  switch($pkgRepository)
+  {
+    "Maven" {
+      return New-Object PSObject -Property @{
+        ParsePkgInfoFn = "ParseMavenPackage"
+        PackagePattern = "*.pom"
+        CollectReleaseArtifactsFn = ""
+      }
+    }
+    "Nuget" {
+      return New-Object PSObject -Property @{
+        ParsePkgInfoFn = "ParseNugetPackage"
+        PackagePattern = "*.nupkg"
+        CollectReleaseArtifactsFn = ""
+      }
+    }
+    "NPM" {
+      return New-Object PSObject -Property @{
+        ParsePkgInfoFn = "ParseNPMPackage"
+        PackagePattern = "*.tgz"
+        CollectReleaseArtifactsFn = ""
+      }
+    }
+    "PyPI" {
+      return New-Object PSObject -Property @{
+        ParsePkgInfoFn = "ParsePyPIPackage"
+        PackagePattern = "*.zip"
+        CollectReleaseArtifactsFn = ""
+      }
+    }
+    default { 
+      Write-Host "Unrecognized Language: $language"
+      exit(1)
+    }
+  }
+}
+
+$config = GetConfigurationObject($packageRepository)
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -pkgRepository $packageRepository -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $apiUrl
+$pkgList = VerifyPackages -scriptConfig $config -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $API_URL
 
 Write-Host "Given the visible artifacts, github releases will be created for the following tags:"
 
@@ -445,4 +454,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha -workingDirectory $workingDirectory
+# CreateReleases -pkgList $pkgList -releaseApiUrl $API_URL/releases -releaseSha $releaseSha -workingDirectory $workingDirectory
