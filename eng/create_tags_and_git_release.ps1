@@ -17,10 +17,8 @@ param (
 )
 
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
-$SEMVER_REGEX = "^$VERSION_REGEX$"
-$TAR_SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
-$NUGET_PACKAGE_REGEX = "^(?<package>.*)\.(?<versionstring>$VERSION_REGEX$)"
-
+$SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
+$NUGET_PACKAGE_REGEX = "^(?<package>.*?)\.(?<versionstring>(?:\.?[0-9]+){3,}(?:[\-\.\S]+)?)\.nupkg$"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
 function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
@@ -158,19 +156,10 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 # Parse out package publishing information given a nupkg ZIP format.
 function ParseNugetPackage($pkg, $workingDirectory)
 {
-  $workFolder = "$workingDirectory$($pkg.Basename)"
-  $origFolder = Get-Location
-  mkdir $workFolder
-  cd $workFolder
+  $pkg.Basename -match $NUGET_PACKAGE_REGEX | Out-Null
 
-  Expand-Archive -Path $pkg -DestinationPath $workFolder
-  [xml] $packageXML = Get-ChildItem -Path "$workFolder/*.nuspec" | Get-Content
-
-  cd $origFolder
-  Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
-
-  $pkgId = $packageXML.package.metadata.id
-  $pkgVersion = $packageXML.package.metadata.version
+  $pkgId = $matches['package']
+  $pkgVersion = $matches['versionstring']
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
@@ -212,7 +201,7 @@ function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
 # Parse out package publishing information given a python sdist of ZIP format.
 function ParsePyPIPackage($pkg, $workingDirectory)
 {
-  $pkg.Basename -match $TAR_SDIST_PACKAGE_REGEX | Out-Null
+  $pkg.Basename -match $SDIST_PACKAGE_REGEX | Out-Null
 
   $pkgId = $matches['package']
   $pkgVersion = $matches['versionstring']
@@ -366,4 +355,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
