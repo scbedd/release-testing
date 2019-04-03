@@ -21,7 +21,7 @@ $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 $NUGET_PACKAGE_REGEX = "^(?<package>.*?)\.(?<versionstring>(?:\.?[0-9]+){3,}(?:[\-\.\S]+)?)\.nupkg$"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
-function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
+function CreateReleases($pkgList, $releaseApiUrl, $releaseSha, $workingDirectory)
 {
   foreach($pkgInfo in $pkgList)
   {
@@ -40,16 +40,96 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
     }
 
     try {
-      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+      # create the release
+      $releaseResults = Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+      Write-Host $releaseResults
+
+      # upload the artifacts associated with this release
+      UploadReleaseArtifacts -pkg $pkgInfo -uploadUrlTemplate $releaseResults.upload_url -releaseId $releaseResults.id -workingDirectory $workingDirectory
     }
     catch {
       $statusCode = $_.Exception.Response.StatusCode.value__
       $statusDescription = $_.Exception.Response.StatusDescription
     
-      Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
+      Write-Host "Release request for tag $pkgInfo.Tag failed with statuscode $statusCode."
       Write-Host $statusDescription
       exit(1)
     }
+  }
+}
+
+# given a release id, upload any package artifacts to it
+function UploadReleaseArtifacts($pkgInfo, $releaseId, $uploadUrlTemplate, $apiUrl, $workingDirectory)
+{
+  $destinationZip = $workingDirectory/$pkg
+  $assetName = "$($pkgInfo.tag).zip"
+  $artifacts = Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+
+  Compress-Archive -LiteralPath $artifacts -DestinationPath "$workingDirectory/$assetName" -Force
+
+  # by default, upload urls come bacl from the CREATE RELEASE response with a trailer {name, label} to indicate arguments should be placed
+  # we need to strip those out and put our own
+  $uploadUrl = $uploadUrlTemplate.Replace("{?name,label}", "?name=$assetName")
+
+  # upload the asset, clean up after it's been successfully uploaded
+  try {
+    IndividualArtifactUpload -uploadUrl $uploadUrl -zip $destinationZip
+    Remove-Item $destinationZip -Force -ErrorAction SilentlyContinue
+  }
+  catch 
+  {
+    # attempt to delete the release
+    CleanupRelease -releaseId "todo" -apiUrl $apiUrl
+
+    throw $_
+  }
+}
+
+# attempt to upload an artifact via a POST method. this function retries 3 times prior to exiting
+function IndividualArtifactUpload($uploadUrl, $zip)
+{
+  $tries = 0
+  $url = $releaseApiUrl
+  $body = Get-Content $zip
+  $zipInfo = Get-ChildItem $zip
+  $headers = @{
+    "Content-Type" = "application/zip"
+    "Authorization" = "token $($env:GH_TOKEN)" 
+  }
+
+  while($tries < 3)
+  {
+    try 
+    {
+      Invoke-RestMethod -Method POST -Uri $uploadUrl -Body $body -Headers $headers
+    }
+    catch 
+    {
+      if($tries -eq 3)
+      {
+        throw $_
+      }
+    }
+    $tries++
+  }
+}
+
+
+# if a given release has failed for any reason, we need to 
+function CleanupRelease($releaseId, $apiUrl)
+{
+  # DELETE /repos/:owner/:repo/releases/:release_id
+  # list assets GET /repos/:owner/:repo/releases/:release_id/assets
+  try {
+    # prior to deleting the release, we need to clean up the 
+  }
+  catch {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    $statusDescription = $_.Exception.Response.StatusDescription
+    
+    Write-Host "Failure during release cleanup. An earlier error caused the release to only partially complete."
+    Write-Host "During attempted cleanup, automation encountered statusCode $statusCode"
+    Write-Host $statusDescription
   }
 }
 
@@ -156,10 +236,19 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 # Parse out package publishing information given a nupkg ZIP format.
 function ParseNugetPackage($pkg, $workingDirectory)
 {
-  $pkg.Basename -match $NUGET_PACKAGE_REGEX | Out-Null
+  $workFolder = "$workingDirectory$($pkg.Basename)"
+  $origFolder = Get-Location
+  mkdir $workFolder
+  cd $workFolder
 
-  $pkgId = $matches['package']
-  $pkgVersion = $matches['versionstring']
+  Expand-Archive -Path $pkg -DestinationPath $workFolder
+  [xml] $packageXML = Get-ChildItem -Path "$workFolder/*.nuspec" | Get-Content
+
+  cd $origFolder
+  Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
+
+  $pkgId = $packageXML.package.metadata.id
+  $pkgVersion = $packageXML.package.metadata.version
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
@@ -316,6 +405,7 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
         PackageId = $parsedPackage.PackageId
         PackageVersion = $parsedPackage.PackageVersion
         Tag = ($parsedPackage.PackageId + "_" + $parsedPackage.PackageVersion)
+        File = $pkg
       }
     }
     catch 
@@ -355,4 +445,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha -workingDirectory $workingDirectory
