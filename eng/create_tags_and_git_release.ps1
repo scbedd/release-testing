@@ -46,7 +46,7 @@ function CreateReleases($scriptConfig, $pkgList, $apiUrl, $releaseSha, $workingD
       Write-Host $releaseResults
 
       # upload the artifacts associated with this release
-      UploadReleaseArtifacts -pkg $pkgInfo -uploadUrlTemplate $releaseResults.upload_url -releaseId $releaseResults.id -workingDirectory $workingDirectory
+      UploadReleaseArtifacts -scriptConfig $scriptConfig -pkg $pkgInfo -uploadUrlTemplate $releaseResults.upload_url -releaseId $releaseResults.id -workingDirectory $workingDirectory
     }
     catch {
       $statusCode = $_.Exception.Response.StatusCode.value__
@@ -60,11 +60,11 @@ function CreateReleases($scriptConfig, $pkgList, $apiUrl, $releaseSha, $workingD
 }
 
 # given a release id, upload any package artifacts to it
-function UploadReleaseArtifacts($pkgInfo, $releaseId, $uploadUrlTemplate, $apiUrl, $workingDirectory)
+function UploadReleaseArtifacts($scriptConfig, $pkgInfo, $releaseId, $uploadUrlTemplate, $apiUrl, $workingDirectory)
 {
   $destinationZip = $workingDirectory/$pkg
   $assetName = "$($pkgInfo.tag).zip"
-  $artifacts = Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+  $artifacts = &$scriptConfig.CollectReleaseArtifactsFn
 
   Compress-Archive -LiteralPath $artifacts -DestinationPath "$workingDirectory/$assetName" -Force
 
@@ -133,6 +133,11 @@ function CleanupRelease($releaseId, $apiUrl)
   }
 }
 
+function CollectMavenReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
+{
+  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+}
+
 # Parse out package publishing information given a maven POM file
 function ParseMavenPackage($pkg, $workingDirectory)
 {
@@ -188,6 +193,11 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
   }
 }
 
+function CollectNPMReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
+{
+  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+}
+
 # Parse out package publishing information given a .tgz npm artifact
 function ParseNPMPackage($pkg, $workingDirectory)
 {
@@ -231,6 +241,11 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
   }
 
   return $npmVersions.Contains($pkgVersion)
+}
+
+function CollectNugetReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
+{
+  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
 }
 
 # Parse out package publishing information given a nupkg ZIP format.
@@ -285,6 +300,11 @@ function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
     exit(1)
   }
 
+}
+
+function CollectPyPIReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
+{
+  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
 }
 
 # Parse out package publishing information given a python sdist of ZIP format.
@@ -410,28 +430,28 @@ function GetConfigurationObject($pkgRepository)
       return New-Object PSObject -Property @{
         ParsePkgInfoFn = "ParseMavenPackage"
         PackagePattern = "*.pom"
-        CollectReleaseArtifactsFn = ""
+        CollectReleaseArtifactsFn = "CollectMavenReleaseArtifacts"
       }
     }
     "Nuget" {
       return New-Object PSObject -Property @{
         ParsePkgInfoFn = "ParseNugetPackage"
         PackagePattern = "*.nupkg"
-        CollectReleaseArtifactsFn = ""
+        CollectReleaseArtifactsFn = "CollectNugetReleaseArtifacts"
       }
     }
     "NPM" {
       return New-Object PSObject -Property @{
         ParsePkgInfoFn = "ParseNPMPackage"
         PackagePattern = "*.tgz"
-        CollectReleaseArtifactsFn = ""
+        CollectReleaseArtifactsFn = "CollectPyPIReleaseArtifacts"
       }
     }
     "PyPI" {
       return New-Object PSObject -Property @{
         ParsePkgInfoFn = "ParsePyPIPackage"
         PackagePattern = "*.zip"
-        CollectReleaseArtifactsFn = ""
+        CollectReleaseArtifactsFn = "CollectMavenReleaseArtifacts"
       }
     }
     default { 
