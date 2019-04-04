@@ -135,7 +135,7 @@ function CleanupRelease($releaseId, $apiUrl)
 
 function CollectMavenReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
 {
-  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName).*" -File -Recurse
 }
 
 # Parse out package publishing information given a maven POM file
@@ -195,7 +195,7 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
 
 function CollectNPMReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
 {
-  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName).*" -File -Recurse
 }
 
 # Parse out package publishing information given a .tgz npm artifact
@@ -245,7 +245,7 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
 
 function CollectNugetReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
 {
-  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName).*" -File -Recurse
 }
 
 # Parse out package publishing information given a nupkg ZIP format.
