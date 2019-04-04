@@ -80,7 +80,7 @@ function UploadReleaseArtifacts($scriptConfig, $pkgInfo, $releaseId, $uploadUrlT
   catch 
   {
     # attempt to delete the release
-    CleanupRelease -releaseId "todo" -apiUrl $apiUrl
+    CleanupRelease -releaseId $releaseId -apiUrl $apiUrl
 
     throw $_
   }
@@ -304,7 +304,12 @@ function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
 
 function CollectPyPIReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
 {
-  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName)*" -File -Recurse
+  $originalFile = $pkgInfo.File
+  $whlGlob = "$($pkgInfo.PackageId.Replace("-", "_"))-$($pkgInfo.PackageVersion)-*.whl"
+  $whlGlob = $pkgInfo.File.BaseName.Replace("_", "-")
+  $wheel = Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$whlGlob-*.whl" -File -Recurse
+
+  return @(originalFile, wheel)
 }
 
 # Parse out package publishing information given a python sdist of ZIP format.
