@@ -22,12 +22,12 @@ $NUGET_PACKAGE_REGEX = "^(?<package>.*?)\.(?<versionstring>(?:\.?[0-9]+){3,}(?:[
 $API_URL = "https://api.github.com/repos/$repoOwner/$repoName"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
-function CreateReleases($pkgList, $releaseApiUrl, $releaseSha, $workingDirectory)
+function CreateReleases($scriptConfig, $pkgList, $apiUrl, $releaseSha, $workingDirectory)
 {
   foreach($pkgInfo in $pkgList)
   {
     Write-Host "Creating release $($pkgInfo.Tag)"
-    $url = $releaseApiUrl
+    $url = $apiUrl/releases
     $body = ConvertTo-Json @{
       tag_name = $pkgInfo.Tag
       target_commitish = $releaseSha
@@ -90,9 +90,7 @@ function UploadReleaseArtifacts($pkgInfo, $releaseId, $uploadUrlTemplate, $apiUr
 function IndividualArtifactUpload($uploadUrl, $zip)
 {
   $tries = 0
-  $url = $releaseApiUrl
   $body = Get-Content $zip
-  $zipInfo = Get-ChildItem $zip
   $headers = @{
     "Content-Type" = "application/zip"
     "Authorization" = "token $($env:GH_TOKEN)" 
@@ -108,6 +106,7 @@ function IndividualArtifactUpload($uploadUrl, $zip)
     {
       if($tries -eq 3)
       {
+        Write-Host "Failed repeated attempts to publish individual artifact zip to release. Problem file is $($zip.Name)."
         throw $_
       }
     }
@@ -454,4 +453,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $API_URL/releases -releaseSha $releaseSha -workingDirectory $workingDirectory
+# CreateReleases -scriptConfig $config  -pkgList $pkgList -apiUrl $API_URL -releaseSha $releaseSha -workingDirectory $workingDirectory
