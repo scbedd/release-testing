@@ -20,7 +20,9 @@ LOCAL JAVA
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/java_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-java -pkgRepository Maven -workingDirectory C:/projects/publish/java_packages/../
 
 LOCAL NUGET
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-net -pkgRepository Nuget -workingDirectory C:/projects/publish/net_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages/failing_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-tools -pkgRepository Nuget -workingDirectory C:/projects/publish/net_packages/../
+
+
 
 
 RELEASE-TESTING

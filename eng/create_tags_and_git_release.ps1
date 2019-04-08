@@ -18,16 +18,15 @@ param (
 
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
 $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
-$NUGET_PACKAGE_REGEX = "^(?<package>.*?)\.(?<versionstring>(?:\.?[0-9]+){3,}(?:[\-\.\S]+)?)\.nupkg$"
-$API_URL = "https://api.github.com/repos/$repoOwner/$repoName"
+
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
-function CreateReleases($scriptConfig, $pkgList, $apiUrl, $releaseSha, $workingDirectory)
+function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
 {
   foreach($pkgInfo in $pkgList)
   {
     Write-Host "Creating release $($pkgInfo.Tag)"
-    $url = $apiUrl/releases
+    $url = $releaseApiUrl
     $body = ConvertTo-Json @{
       tag_name = $pkgInfo.Tag
       target_commitish = $releaseSha
@@ -41,101 +40,17 @@ function CreateReleases($scriptConfig, $pkgList, $apiUrl, $releaseSha, $workingD
     }
 
     try {
-      # create the release
-      $releaseResults = Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
-      Write-Host $releaseResults
-
-      # upload the artifacts associated with this release
-      UploadReleaseArtifacts -scriptConfig $scriptConfig -pkg $pkgInfo -uploadUrlTemplate $releaseResults.upload_url -releaseId $releaseResults.id -workingDirectory $workingDirectory
+      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
     }
     catch {
       $statusCode = $_.Exception.Response.StatusCode.value__
       $statusDescription = $_.Exception.Response.StatusDescription
     
-      Write-Host "Release request for tag $pkgInfo.Tag failed with statuscode $statusCode."
+      Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
       Write-Host $statusDescription
       exit(1)
     }
   }
-}
-
-# given a release id, upload any package artifacts to it
-function UploadReleaseArtifacts($scriptConfig, $pkgInfo, $releaseId, $uploadUrlTemplate, $apiUrl, $workingDirectory)
-{
-  $destinationZip = $workingDirectory/$pkg
-  $assetName = "$($pkgInfo.tag).zip"
-  $artifacts = &$scriptConfig.CollectReleaseArtifactsFn
-
-  Compress-Archive -LiteralPath $artifacts -DestinationPath "$workingDirectory/$assetName" -Force
-
-  # by default, upload urls come bacl from the CREATE RELEASE response with a trailer {name, label} to indicate arguments should be placed
-  # we need to strip those out and put our own
-  $uploadUrl = $uploadUrlTemplate.Replace("{?name,label}", "?name=$assetName")
-
-  # upload the asset, clean up after it's been successfully uploaded
-  try {
-    IndividualArtifactUpload -uploadUrl $uploadUrl -zip $destinationZip
-    Remove-Item $destinationZip -Force -ErrorAction SilentlyContinue
-  }
-  catch 
-  {
-    # attempt to delete the release
-    CleanupRelease -releaseId $releaseId -apiUrl $apiUrl
-
-    throw $_
-  }
-}
-
-# attempt to upload an artifact via a POST method. this function retries 3 times prior to exiting
-function IndividualArtifactUpload($uploadUrl, $zip)
-{
-  $tries = 0
-  $body = Get-Content $zip
-  $headers = @{
-    "Content-Type" = "application/zip"
-    "Authorization" = "token $($env:GH_TOKEN)" 
-  }
-
-  while($tries < 3)
-  {
-    try 
-    {
-      Invoke-RestMethod -Method POST -Uri $uploadUrl -Body $body -Headers $headers
-    }
-    catch 
-    {
-      if($tries -eq 3)
-      {
-        Write-Host "Failed repeated attempts to publish individual artifact zip to release. Problem file is $($zip.Name)."
-        throw $_
-      }
-    }
-    $tries++
-  }
-}
-
-
-# if a given release has failed for any reason, we need to 
-function CleanupRelease($releaseId, $apiUrl)
-{
-  # DELETE /repos/:owner/:repo/releases/:release_id
-  # list assets GET /repos/:owner/:repo/releases/:release_id/assets
-  try {
-    # prior to deleting the release, we need to clean up the 
-  }
-  catch {
-    $statusCode = $_.Exception.Response.StatusCode.value__
-    $statusDescription = $_.Exception.Response.StatusDescription
-    
-    Write-Host "Failure during release cleanup. An earlier error caused the release to only partially complete."
-    Write-Host "During attempted cleanup, automation encountered statusCode $statusCode"
-    Write-Host $statusDescription
-  }
-}
-
-function CollectMavenReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
-{
-  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName).*" -File -Recurse
 }
 
 # Parse out package publishing information given a maven POM file
@@ -193,11 +108,6 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
   }
 }
 
-function CollectNPMReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
-{
-  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName).*" -File -Recurse
-}
-
 # Parse out package publishing information given a .tgz npm artifact
 function ParseNPMPackage($pkg, $workingDirectory)
 {
@@ -243,20 +153,17 @@ function IsNPMPackageVersionPublished($pkgId, $pkgVersion)
   return $npmVersions.Contains($pkgVersion)
 }
 
-function CollectNugetReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
-{
-  return Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$($pkgInfo.File.BaseName).*" -File -Recurse
-}
-
 # Parse out package publishing information given a nupkg ZIP format.
 function ParseNugetPackage($pkg, $workingDirectory)
 {
   $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
+  $zipFileLocation = "$workFolder/$($pkg.Basename).zip"
   mkdir $workFolder
   cd $workFolder
 
-  Expand-Archive -Path $pkg -DestinationPath $workFolder
+  Copy-Item -Path $pkg -Destination $zipFileLocation
+  Expand-Archive -Path $zipFileLocation -DestinationPath $workFolder
   [xml] $packageXML = Get-ChildItem -Path "$workFolder/*.nuspec" | Get-Content
 
   cd $origFolder
@@ -300,16 +207,6 @@ function IsNugetPackageVersionPublished($pkgId, $pkgVersion)
     exit(1)
   }
 
-}
-
-function CollectPyPIReleaseArtifacts($scriptConfig, $pkgInfo, $workingDirectory)
-{
-  $originalFile = $pkgInfo.File
-  $whlGlob = "$($pkgInfo.PackageId.Replace("-", "_"))-$($pkgInfo.PackageVersion)-*.whl"
-  $whlGlob = $pkgInfo.File.BaseName.Replace("_", "-")
-  $wheel = Get-ChildItem -Path $pkg.File.Directory.FullName -Include "$whlGlob-*.whl" -File -Recurse
-
-  return @(originalFile, wheel)
 }
 
 # Parse out package publishing information given a python sdist of ZIP format.
@@ -373,16 +270,47 @@ function GetExistingTags($apiUrl){
 }
 
 # Walk across all build artifacts, check them against the appropriate repository, return a list of tags/releases
-function VerifyPackages($scriptConfig, $artifactLocation, $workingDirectory, $apiUrl)
+function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $apiUrl)
 {
   $pkgList = [array]@()
-  $pkgs = (Get-ChildItem -Path $artifactLocation -Include $scriptConfig.PackagePattern -Recurse -File) 
+  $ParsePkgInfoFn = ''
+  $packagePattern = ''
+
+  switch($pkgRepository)
+  {
+    "Maven" {
+      $ParsePkgInfoFn = "ParseMavenPackage"
+      $packagePattern = "*.pom"
+      break
+    }
+    "Nuget" {
+      $ParsePkgInfoFn = "ParseNugetPackage"
+      $packagePattern = "*.nupkg"
+      break
+    }
+    "NPM" {
+      $ParsePkgInfoFn = "ParseNPMPackage"
+      $packagePattern = "*.tgz"
+      break
+    }
+    "PyPI" {
+      $ParsePkgInfoFn = "ParsePyPIPackage"
+      $packagePattern = "*.zip"
+      break
+    }
+    default { 
+      Write-Host "Unrecognized Language: $language"
+      exit(1)
+    }
+  }
+
+  $pkgs = (Get-ChildItem -Path $artifactLocation -Include $packagePattern -Recurse -File) 
 
   foreach ($pkg in $pkgs)
   {
     try 
     {
-      $parsedPackage = &$scriptConfig.ParsePkgInfoFn -pkg $pkg -workingDirectory $workingDirectory
+      $parsedPackage = &$ParsePkgInfoFn -pkg $pkg -workingDirectory $workingDirectory
 
       if($parsedPackage -eq $null){
         continue
@@ -399,7 +327,6 @@ function VerifyPackages($scriptConfig, $artifactLocation, $workingDirectory, $ap
         PackageId = $parsedPackage.PackageId
         PackageVersion = $parsedPackage.PackageVersion
         Tag = ($parsedPackage.PackageId + "_" + $parsedPackage.PackageVersion)
-        File = $pkg
       }
     }
     catch 
@@ -427,49 +354,10 @@ function VerifyPackages($scriptConfig, $artifactLocation, $workingDirectory, $ap
   return $results
 }
 
-function GetConfigurationObject($pkgRepository)
-{
-  switch($pkgRepository)
-  {
-    "Maven" {
-      return New-Object PSObject -Property @{
-        ParsePkgInfoFn = "ParseMavenPackage"
-        PackagePattern = "*.pom"
-        CollectReleaseArtifactsFn = "CollectMavenReleaseArtifacts"
-      }
-    }
-    "Nuget" {
-      return New-Object PSObject -Property @{
-        ParsePkgInfoFn = "ParseNugetPackage"
-        PackagePattern = "*.nupkg"
-        CollectReleaseArtifactsFn = "CollectNugetReleaseArtifacts"
-      }
-    }
-    "NPM" {
-      return New-Object PSObject -Property @{
-        ParsePkgInfoFn = "ParseNPMPackage"
-        PackagePattern = "*.tgz"
-        CollectReleaseArtifactsFn = "CollectPyPIReleaseArtifacts"
-      }
-    }
-    "PyPI" {
-      return New-Object PSObject -Property @{
-        ParsePkgInfoFn = "ParsePyPIPackage"
-        PackagePattern = "*.zip"
-        CollectReleaseArtifactsFn = "CollectMavenReleaseArtifacts"
-      }
-    }
-    default { 
-      Write-Host "Unrecognized Language: $language"
-      exit(1)
-    }
-  }
-}
-
-$config = GetConfigurationObject($packageRepository)
+$apiUrl = "https://api.github.com/repos/$repoOwner/$repoName"
 
 # VERIFY PACKAGES
-$pkgList = VerifyPackages -scriptConfig $config -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $API_URL
+$pkgList = VerifyPackages -pkgRepository $packageRepository -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $apiUrl
 
 Write-Host "Given the visible artifacts, github releases will be created for the following tags:"
 
@@ -478,4 +366,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -scriptConfig $config  -pkgList $pkgList -apiUrl $API_URL -releaseSha $releaseSha -workingDirectory $workingDirectory
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
