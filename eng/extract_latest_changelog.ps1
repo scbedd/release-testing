@@ -1,43 +1,36 @@
-Function ExtractReleaseNotes($changeLogLocation)
+# given a changelog.md file, extract the relevant info we need to decorate a release
+function ExtractReleaseNotes($changeLogLocation)
 {
-  $contents = Get-Content -Raw $changeLogLocation  
-  $titles = Select-String $TEST_REGEX -input $contents -AllMatches | % { $_.matches }
-  $releaseNotes = @()
-
-  for ($i=0; $i -lt $titles.Length; $i++)
+  $releaseNotes = @{}
+  if ($changeLogLocation.Length -eq 0)
   {
-    $match = $titles[$i].Groups['releaseTitle']
-    $noteVersion = $titles[$i].Groups['version']
+    return $releaseNotes
+  }
 
-    $noteStartIndex = $contents.IndexOf($match)
-    $noteEndIndex = if ($i -eq ($titles.Length - 1)) { $contents.Length } else { $contents.IndexOf($titles[$i + 1].Groups['releaseTitle'])}
+  $contents = Get-Content -Raw $changeLogLocation
+  $noteMatches = Select-String $RELEASE_NOTE_REGEX -input $contents -AllMatches | % { $_.matches }
 
-    Write-Host "Title: $match"
-    Write-Host "SI: $noteStartIndex"
-    Write-Host "EI: $noteEndIndex"
+  foreach($releaseNoteMatch in $noteMatches)
+  {
+    $version = $releaseNoteMatch.Groups['version'].Value
+    $text = $releaseNoteMatch.Groups['releaseText'].Value
 
-    $releaseNote = New-Object PSObject -Property @{
-      ReleaseTitle = $match
-      ReleaseContent = $contents.SubString($noteStartIndex, ($noteEndIndex - $noteStartIndex))
-      ReleaseVersionNumber = $noteVersion
+    $releaseNotes[$version] = New-Object PSObject -Property @{
+      ReleaseContent = $text
     }
-
-    $releaseNotes += $releaseNote
   }
 
   return $releaseNotes
 }
 
-$TEST_REGEX = "(?<releaseTitle>\#\s(?<releaseDate>[\-0-9]+)\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+))))"
+$RELEASE_NOTE_REGEX = "(?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))(?<releaseText>((?!\s# )[\s\S])*))"
 $VERSION_REGEX = "(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+))"
 $SAMPLE_CHANGELOG_LOCATION = "C:/repo/sdk-for-js/sdk/servicebus/service-bus/changelog.md"
 
 $a = ExtractReleaseNotes -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
 
-foreach($bleh in $a)
-{
-  Write-Host $bleh
-}
+
+
 
 # https://stackoverflow.com/questions/12572164/multiline-regex-to-match-config-block
 
