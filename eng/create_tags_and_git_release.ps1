@@ -101,13 +101,13 @@ function ParseMavenPackage($pkg, $workingDirectory)
     return $null
   }
 
-  $changeLogLocation = ''
-  
+  $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $pkg.DirectoryName -Recurse -Include "$($pkg.Basename).md")[0]
+
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsMavenPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion -groupId $groupId.Replace(".", "/"))
-    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
+    ReleaseNotes = $releaseNotes
   }
 }
 
@@ -155,6 +155,7 @@ function ParseNPMPackage($pkg, $workingDirectory)
 
   tar -xzf $pkg
   $packageJSON = Get-ChildItem -Path $workFolder -Recurse -Include "package.json" | Get-Content | ConvertFrom-Json
+  $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $workFolder -Recurse -Include "changelog.md")[0]
 
   cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
@@ -162,13 +163,11 @@ function ParseNPMPackage($pkg, $workingDirectory)
   $pkgId = $packageJSON.name
   $pkgVersion = $packageJSON.version
 
-  $changeLogLocation = ''
-
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsNPMPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
-    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
+    ReleaseNotes = $releaseNotes
   }
 }
 
@@ -205,20 +204,18 @@ function ParseNugetPackage($pkg, $workingDirectory)
   Copy-Item -Path $pkg -Destination $zipFileLocation
   Expand-Archive -Path $zipFileLocation -DestinationPath $workFolder
   [xml] $packageXML = Get-ChildItem -Path "$workFolder/*.nuspec" | Get-Content
+  $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $workFolder -Recurse -Include "changelog.md")[0]
 
   cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
-
   $pkgId = $packageXML.package.metadata.id
   $pkgVersion = $packageXML.package.metadata.version
-
-  $changeLogLocation = ''
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsNugetPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
-    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
+    ReleaseNotes = $releaseNotes
   }
 }
 
@@ -260,13 +257,21 @@ function ParsePyPIPackage($pkg, $workingDirectory)
   $pkgId = $matches['package']
   $pkgVersion = $matches['versionstring']
 
-  $changeLogLocation = ''
+  $workFolder = "$workingDirectory$($pkg.Basename)"
+  $origFolder = Get-Location
+  mkdir $workFolder
+  cd $workFolder
+
+  Expand-Archive -Path $pkg -DestinationPath $workFolder
+  $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $workFolder -Recurse -Include "changelog.md")[0]
+  cd $origFolder
+  Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsPythonPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
-    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
+    ReleaseNotes = $releaseNotes
   }
 }
 
@@ -409,7 +414,8 @@ Write-Host "Given the visible artifacts, github releases will be created for the
 
 foreach($packageInfo in $pkgList){
   Write-Host $packageInfo.Tag
+  Write-Host $packageInfo.ReleaseNotes
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
