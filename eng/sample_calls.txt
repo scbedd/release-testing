@@ -1,44 +1,44 @@
 
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository NPM -packagePattern "*.tgz"
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -packageRepository NPM -packagePattern "*.tgz"
 
 
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages_weird -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -pkgRepository NPM -packagePattern "*.tgz"
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages_weird -releaseSha releaseSha -apiUrl "https://" -targetBranch "master" -packageRepository NPM -packagePattern "*.tgz"
 
--artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._azure-sdk-for-python.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory) -packageRepository $(packageRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._azure-sdk-for-python.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
--artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory) -packageRepository $(packageRepository) -repoCloneLocation $(RepoCloneLocation) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -repoUrl $(TargetRepo) -apiUrl $(ReleaseApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 
 
 LOCAL PYTHON
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-python -pkgRepository PyPI -workingDirectory C:/projects/publish/python_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-python -packageRepository PyPI -workingDirectory C:/projects/publish/python_packages/../
 
 LOCAL js_packages
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-js -pkgRepository NPM -workingDirectory C:/projects/publish/js_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-js -packageRepository NPM -workingDirectory C:/projects/publish/js_packages/../
 
 LOCAL JAVA
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/java_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-java -pkgRepository Maven -workingDirectory C:/projects/publish/java_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/java_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-java -packageRepository Maven -workingDirectory C:/projects/publish/java_packages/../
 
 LOCAL NUGET
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages/failing_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-tools -pkgRepository Nuget -workingDirectory C:/projects/publish/net_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages/failing_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-tools -packageRepository Nuget -workingDirectory C:/projects/publish/net_packages/../
 
 
 
 
 RELEASE-TESTING
--artifactLocation $(System.ArtifactsDirectory) -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._Release-Test-Prep.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory) -packageRepository $(packageRepository) -releaseSha $(Release.Artifacts._Release-Test-Prep.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 WARDEN 
--artifactLocation $(System.ArtifactsDirectory)/_azure-sdk-tools-warden -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._azure-sdk-tools-warden.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory)/_azure-sdk-tools-warden -packageRepository $(packageRepository) -releaseSha $(Release.Artifacts._azure-sdk-tools-warden.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 PYTHON
--artifactLocation $(System.ArtifactsDirectory)/_artifacts -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory)/_artifacts -packageRepository $(packageRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 JS
--artifactLocation $(System.ArtifactsDirectory)/_artifacts -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory)/_artifacts -packageRepository $(packageRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 JAVA
--artifactLocation $(System.ArtifactsDirectory)/_artifacts -pkgRepository $(PkgRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
+-artifactLocation $(System.ArtifactsDirectory)/_artifacts -packageRepository $(packageRepository) -releaseSha $(Release.Artifacts._artifacts.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 
 DEVOPS PARAMETER STRING
 .\create_tags_and_git_release.ps1 -artifactLocation $(artifacts) -releaseSha $(Release.Artifacts._azure-sdk-tools-warden.SourceVersion) -repoOwner $(RepoOwner) -repoName $(RepoName) Maven 
