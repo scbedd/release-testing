@@ -18,7 +18,7 @@ param (
 
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
 $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
-
+$RELEASE_NOTE_REGEX = "(?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s-\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))(?<releaseText>((?!\s# )[\s\S])*))"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
 function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
@@ -33,6 +33,7 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
       name = $pkgInfo.Tag
       draft = $False
       prerelease = $False
+      body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion] # null if not present
     }
     $headers = @{
       "Content-Type" = "application/json"
@@ -53,6 +54,39 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
   }
 }
 
+# given a changelog.md file, extract the relevant info we need to decorate a release
+function ExtractReleaseNotes($changeLogLocation)
+{
+  $releaseNotes = @{}
+
+  try {
+    if ($changeLogLocation.Length -eq 0)
+    {
+      return $releaseNotes
+    }
+
+    $contents = Get-Content -Raw $changeLogLocation
+    $noteMatches = Select-String $RELEASE_NOTE_REGEX -input $contents -AllMatches | % { $_.matches }
+
+    foreach($releaseNoteMatch in $noteMatches)
+    {
+      $version = $releaseNoteMatch.Groups['version'].Value
+      $text = $releaseNoteMatch.Groups['releaseText'].Value
+
+      $releaseNotes[$version] = New-Object PSObject -Property @{
+        ReleaseContent = $text
+      }
+    }
+  }
+  catch
+  {
+    Write-Host "Error parsing $changeLogLocation."
+    Write-Host $_.Exception.Message
+  }
+
+  return $releaseNotes
+}
+
 # Parse out package publishing information given a maven POM file
 function ParseMavenPackage($pkg, $workingDirectory)
 {
@@ -67,10 +101,13 @@ function ParseMavenPackage($pkg, $workingDirectory)
     return $null
   }
 
+  $changeLogLocation = ''
+  
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsMavenPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion -groupId $groupId.Replace(".", "/"))
+    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
   }
 }
 
@@ -125,10 +162,13 @@ function ParseNPMPackage($pkg, $workingDirectory)
   $pkgId = $packageJSON.name
   $pkgVersion = $packageJSON.version
 
+  $changeLogLocation = ''
+
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsNPMPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
+    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
   }
 }
 
@@ -172,10 +212,13 @@ function ParseNugetPackage($pkg, $workingDirectory)
   $pkgId = $packageXML.package.metadata.id
   $pkgVersion = $packageXML.package.metadata.version
 
+  $changeLogLocation = ''
+
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsNugetPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
+    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
   }
 }
 
@@ -217,10 +260,13 @@ function ParsePyPIPackage($pkg, $workingDirectory)
   $pkgId = $matches['package']
   $pkgVersion = $matches['versionstring']
 
+  $changeLogLocation = ''
+
   return New-Object PSObject -Property @{
     PackageId = $pkgId
     PackageVersion = $pkgVersion
     Deployable = !(IsPythonPackageVersionPublished -pkgId $pkgId -pkgVersion $pkgVersion)
+    ReleaseNotes = ExtractReleaseNotes -changeLogLocation $changeLogLocation
   }
 }
 
@@ -366,4 +412,4 @@ foreach($packageInfo in $pkgList){
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha

@@ -23,7 +23,7 @@ function ExtractReleaseNotes($changeLogLocation)
   return $releaseNotes
 }
 
-$RELEASE_NOTE_REGEX = "(?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))(?<releaseText>((?!\s# )[\s\S])*))"
+$RELEASE_NOTE_REGEX = "(?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s-\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))(?<releaseText>((?!\s# )[\s\S])*))"
 $VERSION_REGEX = "(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+))"
 $SAMPLE_CHANGELOG_LOCATION = "C:/repo/sdk-for-js/sdk/servicebus/service-bus/changelog.md"
 
