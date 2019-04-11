@@ -384,7 +384,7 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
     {
       Write-Host $_.Exception.Message
       exit(1)
-    }
+    }  
   }
 
   $results = ([array]$pkgList | Sort-Object -Property Tag -uniq)
@@ -414,8 +414,7 @@ Write-Host "Given the visible artifacts, github releases will be created for the
 
 foreach($packageInfo in $pkgList){
   Write-Host $packageInfo.Tag
-  Write-Host $packageInfo.ReleaseNotes
 }
 
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
