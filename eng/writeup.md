@@ -27,3 +27,12 @@ A given `changelog.md` file must follow the below form:
 During release, if there exists a changelog entry with a version specifier _matching_ that of the currently releasing package, that changelog entry will be added as the body of the GitHub release.
 
 The [JS ServiceBus SDK](https://github.com/Azure/azure-sdk-for-js/blob/master/sdk/servicebus/service-bus/changelog.md) maintains a great changelog example. Given that changelog, this is what a [release](https://github.com/Azure/azure-sdk-for-js/releases/tag/%40azure%2Fservice-bus_1.0.0-preview.2) looks like.
+
+---
+topic: sample
+description: Provides base sample driver that IHVs and partners can use to extend to build their custom Windows GPS/GNSS drivers.
+languages:
+- cpp
+products:
+- windows
+---

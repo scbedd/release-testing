@@ -1,0 +1,16 @@
+
+
+Build SHA
+
+
+https://github.com/scbedd/release-testing/blob/bb96bc7b173aa2f76724bf9da7e5dc78672c6849/packages.md#azure-template
+https://github.com/scbedd/release-testing/blob/bb96bc7b173aa2f76724bf9da7e5dc78672c6849/packages/azure-template/changelog.md
+
+
+
+Form for package index
+https://github.com/{repoOwner}/{repoName}/blob/{commitSHA}/packages.md#{packageId}
+
+Form for direct link
+https://github.com/{repoOwner}/{repoName}/blob/{commitSHA}/<relative Url Path from Table>
+
