@@ -22,7 +22,7 @@ $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 # match a h1 markdown header at the start of the line
 # match anything that's not a version from the start of the line (negative lookahead matching the version regex) 0 or more times
 # match a version regex
-$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)?))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)?))"
+$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>^\#\s.*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)?))"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
 # function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)

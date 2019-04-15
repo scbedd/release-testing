@@ -97,14 +97,14 @@ $NEGATIVE_LOOKAHEAD_REGEX = "((?!$UNCAPTURED_VERSION_REGEX)[\s\S])*"
 $TITLE_REGEX = "(?<releaseNoteTitle>^\#\s$NEGATIVE_LOOKAHEAD_REGEX$CAPTURED_VERSION_REGEX)"
 
 # working https://regex101.com/r/qpvdwv/4
-$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)?))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)?))"
+$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>^\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)?))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)?))"
 
 return ExtractReleaseNotes -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
 #CheckLines -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
 
 # https://stackoverflow.com/questions/12572164/multiline-regex-to-match-config-block
 
-# https://regex101.com/r/X2jaMC/3
+# https://regex101.com/r/X2jaMC/6 <-- working title regex
 
 # eating everything
 # (?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))(?<releaseText>(?!\#\ )[\s\S]*))
