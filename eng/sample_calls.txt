@@ -11,16 +11,16 @@
 
 
 LOCAL PYTHON
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-python -packageRepository PyPI -workingDirectory C:/projects/publish/python_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-python -packageRepository PyPI -workingDirectory C:/projects/publish/
 
 LOCAL js_packages
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-js -packageRepository NPM -workingDirectory C:/projects/publish/js_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-js -packageRepository NPM -workingDirectory C:/projects/publish/
 
 LOCAL JAVA
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/java_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-java -packageRepository Maven -workingDirectory C:/projects/publish/java_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/java_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-java -packageRepository Maven -workingDirectory C:/projects/publish/
 
 LOCAL NUGET
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages/failing_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-tools -packageRepository Nuget -workingDirectory C:/projects/publish/net_packages/../
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-tools -packageRepository Nuget -workingDirectory C:/projects/publish/
 
 
 

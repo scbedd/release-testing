@@ -22,47 +22,51 @@ $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
 # match a h1 markdown header at the start of the line
 # match anything that's not a version from the start of the line (negative lookahead matching the version regex) 0 or more times
 # match a version regex
-$RELEASE_NOTE_TITLE_REGEX = "(?<releaseNoteTitle>^\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)))"
+$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)?))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)?))"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
-function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
-{
-  foreach($pkgInfo in $pkgList)
-  {
-    Write-Host "Creating release $($pkgInfo.Tag)"
-    $url = $releaseApiUrl
-    $body = ConvertTo-Json @{
-      tag_name = $pkgInfo.Tag
-      target_commitish = $releaseSha
-      name = $pkgInfo.Tag
-      draft = $False
-      prerelease = $False
-      body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent # null if not present
-    }
-    $headers = @{
-      "Content-Type" = "application/json"
-      "Authorization" = "token $($env:GH_TOKEN)" 
-    }
+# function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
+# {
+#   foreach($pkgInfo in $pkgList)
+#   {
+#     Write-Host "Creating release $($pkgInfo.Tag)"
+#     $url = $releaseApiUrl
+#     $body = ConvertTo-Json @{
+#       tag_name = $pkgInfo.Tag
+#       target_commitish = $releaseSha
+#       name = $pkgInfo.Tag
+#       draft = $False
+#       prerelease = $False
+#       body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent # null if not present
+#     }
+#     $headers = @{
+#       "Content-Type" = "application/json"
+#       "Authorization" = "token $($env:GH_TOKEN)" 
+#     }
 
-    try {
-      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
-    }
-    catch {
-      $statusCode = $_.Exception.Response.StatusCode.value__
-      $statusDescription = $_.Exception.Response.StatusDescription
+#     try {
+#       Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+#     }
+#     catch {
+#       $statusCode = $_.Exception.Response.StatusCode.value__
+#       $statusDescription = $_.Exception.Response.StatusDescription
     
-      Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
-      Write-Host $statusDescription
-      exit(1)
-    }
-  }
-}
+#       Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
+#       Write-Host $statusDescription
+#       exit(1)
+#     }
+#   }
+# }
 
 # given a changelog.md file, extract the relevant info we need to decorate a release
 function ExtractReleaseNotes($changeLogLocation)
 {
   $releaseNotes = @{}
   $contentArrays = @{}
+  if ($changeLogLocation.Length -eq 0)
+  {
+    return $releaseNotes
+  }
 
   try {
     $contents = Get-Content $changeLogLocation
@@ -77,7 +81,10 @@ function ExtractReleaseNotes($changeLogLocation)
         $contentArrays[$version] += $line
       }
       else {
-        $contentArrays[$version] += $line
+        if ($version.Length -ne 0)
+        {
+          $contentArrays[$version] += $line
+        }
       }
     }
 
@@ -390,6 +397,7 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
         PackageId = $parsedPackage.PackageId
         PackageVersion = $parsedPackage.PackageVersion
         Tag = ($parsedPackage.PackageId + "_" + $parsedPackage.PackageVersion)
+        ReleaseNotes = $parsedPackage.ReleaseNotes
       }
     }
     catch 
@@ -412,8 +420,6 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
     exit(1)
   }
 
-  Write-Host $results
-
   return $results
 }
 
@@ -426,7 +432,8 @@ Write-Host "Given the visible artifacts, github releases will be created for the
 
 foreach($packageInfo in $pkgList){
   Write-Host $packageInfo.Tag
+  Write-Host $packageInfo.ReleaseNotes[$packageInfo.PackageVersion].ReleaseContent
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha

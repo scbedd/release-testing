@@ -8,20 +8,43 @@ function ExtractReleaseNotes($changeLogLocation)
     return $releaseNotes
   }
 
-  $contents = Get-Content $changeLogLocation
+  try {
+    $contents = Get-Content $changeLogLocation
 
-  $version = ''
-  foreach($line in $contents){
-    if ($line -match $RELEASE_TITLE_REGEX)
-    {
-      $version = $matches['version']
-      $contentArrays[$version] = @()
-      $contentArrays[$version] += $line
+    # walk the document, finding where the version specifiers are and creating lists
+    $version = ''
+    foreach($line in $contents){
+      if ($line -match $RELEASE_TITLE_REGEX)
+      {
+        $version = $matches['version']
+        $contentArrays[$version] = @()
+        $contentArrays[$version] += $line
+      }
+      else {
+        if ($version.Length -ne 0)
+        {
+          $contentArrays[$version] += $line
+        }
+      }
     }
-    else {
-      $contentArrays[$version] += $line
+
+    # resolve each of discovered version specifier string arrays into real content
+    foreach($key in $contentArrays.Keys)
+    {
+      $releaseNotes[$key] = New-Object PSObject -Property @{
+        ReleaseVersion = $key
+        ReleaseContent = $contentArrays[$key] -join [Environment]::NewLine
+      }
     }
   }
+  catch
+  {
+    Write-Host "Error parsing $changeLogLocation."
+    Write-Host $_.Exception.Message
+  }
+
+  return $releaseNotes
+}
 
   # $contents = Get-Content -Raw $changeLogLocation
   # $noteMatches = Select-String $RELEASE_NOTE_REGEX -input $contents -AllMatches | % { $_.matches }
@@ -66,16 +89,17 @@ function CheckLines($changeLogLocation)
 $RELEASE_NOTE_REGEX = "(?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s-\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))(?<releaseText>((?!\s# )[\s\S])*))"
 $VERSION_REGEX = "(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+))"
 $RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>\#(?<preVersion>[\s]*?)(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+))))"
-$SAMPLE_CHANGELOG_LOCATION = "C:/repo/sdk-for-js/sdk/servicebus/service-bus/changelog.md"
+$SAMPLE_CHANGELOG_LOCATION = "C:/repo/sdk-tools/packages/python-packages/doc-warden/changelog.md" #"C:/repo/sdk-for-js/sdk/servicebus/service-bus/changelog.md"
 
-$UNCAPTURED_VERSION_REGEX = "(\d+\.\d+\.\d+([^0-9][^\s]+))"
-$CAPTURED_VERSION_REGEX = "(?<version>\d+\.\d+\.\d+([^0-9][^\s]+))"
+$UNCAPTURED_VERSION_REGEX = "(\d+\.\d+\.\d+([^0-9][^\s]*))"
+$CAPTURED_VERSION_REGEX = "(?<version>\d+\.\d+\.\d+([^0-9][^\s]*))"
 $NEGATIVE_LOOKAHEAD_REGEX = "((?!$UNCAPTURED_VERSION_REGEX)[\s\S])*"
 $TITLE_REGEX = "(?<releaseNoteTitle>^\#\s$NEGATIVE_LOOKAHEAD_REGEX$CAPTURED_VERSION_REGEX)"
 
-$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>^\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)))"
+# working https://regex101.com/r/qpvdwv/4
+$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)?))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)?))"
 
-ExtractReleaseNotes -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
+return ExtractReleaseNotes -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
 #CheckLines -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
 
 # https://stackoverflow.com/questions/12572164/multiline-regex-to-match-config-block
