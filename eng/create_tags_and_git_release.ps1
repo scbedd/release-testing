@@ -18,7 +18,11 @@ param (
 
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
 $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
-$RELEASE_NOTE_REGEX = "(?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s-\s(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))(?<releaseText>((?!\s# )[\s\S])*))"
+
+# match a h1 markdown header at the start of the line
+# match anything that's not a version from the start of the line (negative lookahead matching the version regex) 0 or more times
+# match a version regex
+$RELEASE_NOTE_TITLE_REGEX = "(?<releaseNoteTitle>^\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)))"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
 function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
@@ -33,7 +37,7 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
       name = $pkgInfo.Tag
       draft = $False
       prerelease = $False
-      body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion] # null if not present
+      body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent # null if not present
     }
     $headers = @{
       "Content-Type" = "application/json"
@@ -58,23 +62,31 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
 function ExtractReleaseNotes($changeLogLocation)
 {
   $releaseNotes = @{}
+  $contentArrays = @{}
 
   try {
-    if ($changeLogLocation.Length -eq 0)
-    {
-      return $releaseNotes
+    $contents = Get-Content $changeLogLocation
+
+    # walk the document, finding where the version specifiers are and creating lists
+    $version = ''
+    foreach($line in $contents){
+      if ($line -match $RELEASE_TITLE_REGEX)
+      {
+        $version = $matches['version']
+        $contentArrays[$version] = @()
+        $contentArrays[$version] += $line
+      }
+      else {
+        $contentArrays[$version] += $line
+      }
     }
 
-    $contents = Get-Content -Raw $changeLogLocation
-    $noteMatches = Select-String $RELEASE_NOTE_REGEX -input $contents -AllMatches | % { $_.matches }
-
-    foreach($releaseNoteMatch in $noteMatches)
+    # resolve each of discovered version specifier string arrays into real content
+    foreach($key in $contentArrays.Keys)
     {
-      $version = $releaseNoteMatch.Groups['version'].Value
-      $text = $releaseNoteMatch.Groups['releaseText'].Value
-
-      $releaseNotes[$version] = New-Object PSObject -Property @{
-        ReleaseContent = $text
+      $releaseNotes[$key] = New-Object PSObject -Property @{
+        ReleaseVersion = $key
+        ReleaseContent = $contentArrays[$key] -join [Environment]::NewLine
       }
     }
   }

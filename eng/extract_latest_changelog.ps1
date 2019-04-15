@@ -17,10 +17,6 @@ function ExtractReleaseNotes($changeLogLocation)
       $version = $matches['version']
       $contentArrays[$version] = @()
       $contentArrays[$version] += $line
-      $releaseNotes[$version] = New-Object PSObject -Property @{
-        ReleaseContent = ''
-        ReleaseVersion = '$version'
-      }
     }
     else {
       $contentArrays[$version] += $line
@@ -40,9 +36,12 @@ function ExtractReleaseNotes($changeLogLocation)
   #   }
   # }
 
-  foreach($val in $releaseNotes)
+  foreach($key in $contentArrays.Keys)
   {
-    $val.Value.ReleaseContent = $contentArrays[$val.Value.ReleaseVersion] -join [Environment]::NewLine
+    $releaseNotes[$key] = New-Object PSObject -Property @{
+      ReleaseVersion = $key
+      ReleaseContent = $contentArrays[$key] -join [Environment]::NewLine
+    }
   }
 
   return $releaseNotes
@@ -68,16 +67,16 @@ $RELEASE_NOTE_REGEX = "(?<releaseNote>\#\s(?<releaseDate>[\-0-9]+)\s-\s(?<versio
 $VERSION_REGEX = "(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+))"
 $RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>\#(?<preVersion>[\s]*?)(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+))))"
 $SAMPLE_CHANGELOG_LOCATION = "C:/repo/sdk-for-js/sdk/servicebus/service-bus/changelog.md"
-$UNCAPTURED_VERSION_REGEX = "((\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))"
-$CAPTURED_VERSION_REGEX = "(?<version>(\d+)(\.(\d+))?(\.(\d+))?(([^0-9][^\s]+)))"
 
-
+$UNCAPTURED_VERSION_REGEX = "(\d+\.\d+\.\d+([^0-9][^\s]+))"
+$CAPTURED_VERSION_REGEX = "(?<version>\d+\.\d+\.\d+([^0-9][^\s]+))"
 $NEGATIVE_LOOKAHEAD_REGEX = "((?!$UNCAPTURED_VERSION_REGEX)[\s\S])*"
 $TITLE_REGEX = "(?<releaseNoteTitle>^\#\s$NEGATIVE_LOOKAHEAD_REGEX$CAPTURED_VERSION_REGEX)"
 
+$RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>^\#\s((?!(\d+\.\d+\.\d+([^0-9][^\s]+)))[\s\S])*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)))"
 
-#ExtractReleaseNotes -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
-CheckLines -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
+ExtractReleaseNotes -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
+#CheckLines -changeLogLocation $SAMPLE_CHANGELOG_LOCATION
 
 # https://stackoverflow.com/questions/12572164/multiline-regex-to-match-config-block
 
