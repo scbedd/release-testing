@@ -161,16 +161,16 @@ function ParseNPMPackage($pkg, $workingDirectory)
   $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
   mkdir $workFolder
-
   cd $workFolder
-  tar -xzf $pkg
 
+  tar -xzf $pkg
   $packageJSON = Get-ChildItem -Path $workFolder -Recurse -Include "package.json" | Get-Content | ConvertFrom-Json
   $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $workFolder -Recurse -Include "changelog.md")[0]
 
   cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
-  
+
+
   $pkgId = $packageJSON.name
   $pkgVersion = $packageJSON.version
 
@@ -374,12 +374,12 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
         continue
       }
 
-      # if($parsedPackage.Deployable -ne $True)
-      # {
-      #   Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), the version $($parsedPackage.PackageVersion) has already been deployed to the target repository."
-      #   Write-Host "Maybe a pkg version wasn't updated properly?"
-      #   exit(1)
-      # }
+      if($parsedPackage.Deployable -ne $True)
+      {
+        Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), the version $($parsedPackage.PackageVersion) has already been deployed to the target repository."
+        Write-Host "Maybe a pkg version wasn't updated properly?"
+        exit(1)
+      }
 
       $pkgList += New-Object PSObject -Property @{
         PackageId = $parsedPackage.PackageId
@@ -397,7 +397,7 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
 
   $results = ([array]$pkgList | Sort-Object -Property Tag -uniq)
 
-  $existingTags = @() #GetExistingTags($apiUrl)
+  $existingTags = GetExistingTags($apiUrl)
   $intersect = $results | % { $_.Tag } | ?{$existingTags -contains $_}
 
   if($intersect.Length -gt 0)
@@ -422,6 +422,5 @@ foreach($packageInfo in $pkgList){
   $packageInfo
 }
 
-
 # CREATE TAGS and RELEASES
-# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
