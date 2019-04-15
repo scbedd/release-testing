@@ -18,45 +18,41 @@ param (
 
 $VERSION_REGEX = "(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?((?<pre>[^0-9][^\s]+))?"
 $SDIST_PACKAGE_REGEX = "^(?<package>.*)\-(?<versionstring>$VERSION_REGEX$)"
-
-# match a h1 markdown header at the start of the line
-# match anything that's not a version from the start of the line (negative lookahead matching the version regex) 0 or more times
-# match a version regex
 $RELEASE_TITLE_REGEX = "(?<releaseNoteTitle>^\#\s.*(?<version>\d+\.\d+\.\d+([^0-9][^\s]+)?))"
 
 # Posts a github release for each item of the pkgList variable. SilentlyContinue
-# function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
-# {
-#   foreach($pkgInfo in $pkgList)
-#   {
-#     Write-Host "Creating release $($pkgInfo.Tag)"
-#     $url = $releaseApiUrl
-#     $body = ConvertTo-Json @{
-#       tag_name = $pkgInfo.Tag
-#       target_commitish = $releaseSha
-#       name = $pkgInfo.Tag
-#       draft = $False
-#       prerelease = $False
-#       body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent # null if not present
-#     }
-#     $headers = @{
-#       "Content-Type" = "application/json"
-#       "Authorization" = "token $($env:GH_TOKEN)" 
-#     }
+function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
+{
+  foreach($pkgInfo in $pkgList)
+  {
+    Write-Host "Creating release $($pkgInfo.Tag)"
+    $url = $releaseApiUrl
+    $body = ConvertTo-Json @{
+      tag_name = $pkgInfo.Tag
+      target_commitish = $releaseSha
+      name = $pkgInfo.Tag
+      draft = $False
+      prerelease = $False
+      body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent # null if not present
+    }
+    $headers = @{
+      "Content-Type" = "application/json"
+      "Authorization" = "token $($env:GH_TOKEN)" 
+    }
 
-#     try {
-#       Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
-#     }
-#     catch {
-#       $statusCode = $_.Exception.Response.StatusCode.value__
-#       $statusDescription = $_.Exception.Response.StatusDescription
+    try {
+      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+    }
+    catch {
+      $statusCode = $_.Exception.Response.StatusCode.value__
+      $statusDescription = $_.Exception.Response.StatusDescription
     
-#       Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
-#       Write-Host $statusDescription
-#       exit(1)
-#     }
-#   }
-# }
+      Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
+      Write-Host $statusDescription
+      exit(1)
+    }
+  }
+}
 
 # given a changelog.md file, extract the relevant info we need to decorate a release
 function ExtractReleaseNotes($changeLogLocation)
@@ -78,14 +74,9 @@ function ExtractReleaseNotes($changeLogLocation)
       {
         $version = $matches['version']
         $contentArrays[$version] = @()
-        $contentArrays[$version] += $line
       }
-      else {
-        if ($version.Length -ne 0)
-        {
-          $contentArrays[$version] += $line
-        }
-      }
+      
+      $contentArrays[$version] += $line
     }
 
     # resolve each of discovered version specifier string arrays into real content
@@ -170,15 +161,16 @@ function ParseNPMPackage($pkg, $workingDirectory)
   $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
   mkdir $workFolder
-  cd $workFolder
 
+  cd $workFolder
   tar -xzf $pkg
+
   $packageJSON = Get-ChildItem -Path $workFolder -Recurse -Include "package.json" | Get-Content | ConvertFrom-Json
   $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $workFolder -Recurse -Include "changelog.md")[0]
 
   cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
-
+  
   $pkgId = $packageJSON.name
   $pkgVersion = $packageJSON.version
 
@@ -218,14 +210,12 @@ function ParseNugetPackage($pkg, $workingDirectory)
   $origFolder = Get-Location
   $zipFileLocation = "$workFolder/$($pkg.Basename).zip"
   mkdir $workFolder
-  cd $workFolder
 
   Copy-Item -Path $pkg -Destination $zipFileLocation
   Expand-Archive -Path $zipFileLocation -DestinationPath $workFolder
   [xml] $packageXML = Get-ChildItem -Path "$workFolder/*.nuspec" | Get-Content
   $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $workFolder -Recurse -Include "changelog.md")[0]
 
-  cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
   $pkgId = $packageXML.package.metadata.id
   $pkgVersion = $packageXML.package.metadata.version
@@ -279,11 +269,9 @@ function ParsePyPIPackage($pkg, $workingDirectory)
   $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
   mkdir $workFolder
-  cd $workFolder
 
   Expand-Archive -Path $pkg -DestinationPath $workFolder
   $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $workFolder -Recurse -Include "changelog.md")[0]
-  cd $origFolder
   Remove-Item $workFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
   return New-Object PSObject -Property @{
@@ -386,12 +374,12 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
         continue
       }
 
-      if($parsedPackage.Deployable -ne $True)
-      {
-        Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), the version $($parsedPackage.PackageVersion) has already been deployed to the target repository."
-        Write-Host "Maybe a pkg version wasn't updated properly?"
-        exit(1)
-      }
+      # if($parsedPackage.Deployable -ne $True)
+      # {
+      #   Write-Host "Package $($parsedPackage.PackageId) is marked with version $($parsedPackage.PackageVersion), the version $($parsedPackage.PackageVersion) has already been deployed to the target repository."
+      #   Write-Host "Maybe a pkg version wasn't updated properly?"
+      #   exit(1)
+      # }
 
       $pkgList += New-Object PSObject -Property @{
         PackageId = $parsedPackage.PackageId
@@ -409,7 +397,7 @@ function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $a
 
   $results = ([array]$pkgList | Sort-Object -Property Tag -uniq)
 
-  $existingTags = GetExistingTags($apiUrl)
+  $existingTags = @() #GetExistingTags($apiUrl)
   $intersect = $results | % { $_.Tag } | ?{$existingTags -contains $_}
 
   if($intersect.Length -gt 0)
@@ -428,12 +416,12 @@ $apiUrl = "https://api.github.com/repos/$repoOwner/$repoName"
 # VERIFY PACKAGES
 $pkgList = VerifyPackages -pkgRepository $packageRepository -artifactLocation $artifactLocation -workingDirectory $workingDirectory -apiUrl $apiUrl
 
-Write-Host "Given the visible artifacts, github releases will be created for the following tags:"
+Write-Host "Given the visible artifacts, github releases will be created for the following:"
 
 foreach($packageInfo in $pkgList){
-  Write-Host $packageInfo.Tag
-  Write-Host $packageInfo.ReleaseNotes[$packageInfo.PackageVersion].ReleaseContent
+  $packageInfo
 }
+
 
 # CREATE TAGS and RELEASES
 # CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha

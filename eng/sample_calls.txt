@@ -23,8 +23,6 @@ LOCAL NUGET
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-tools -packageRepository Nuget -workingDirectory C:/projects/publish/
 
 
-
-
 RELEASE-TESTING
 -artifactLocation $(System.ArtifactsDirectory) -packageRepository $(packageRepository) -releaseSha $(Release.Artifacts._Release-Test-Prep.SourceVersion) -apiUrl $(ApiUrl) -targetBranch $(TargetBranch) -packagePattern $(PackagePattern)
 

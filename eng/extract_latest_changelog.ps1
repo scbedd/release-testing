@@ -18,14 +18,9 @@ function ExtractReleaseNotes($changeLogLocation)
       {
         $version = $matches['version']
         $contentArrays[$version] = @()
-        $contentArrays[$version] += $line
       }
-      else {
-        if ($version.Length -ne 0)
-        {
-          $contentArrays[$version] += $line
-        }
-      }
+      
+      $contentArrays[$version] += $line
     }
 
     # resolve each of discovered version specifier string arrays into real content
@@ -45,31 +40,6 @@ function ExtractReleaseNotes($changeLogLocation)
 
   return $releaseNotes
 }
-
-  # $contents = Get-Content -Raw $changeLogLocation
-  # $noteMatches = Select-String $RELEASE_NOTE_REGEX -input $contents -AllMatches | % { $_.matches }
-
-  # foreach($releaseNoteMatch in $noteMatches)
-  # {
-  #   $version = $releaseNoteMatch.Groups['version'].Value
-  #   $text = $releaseNoteMatch.Groups['releaseText'].Value
-
-  #   $releaseNotes[$version] = New-Object PSObject -Property @{
-  #     ReleaseContent = $text
-  #   }
-  # }
-
-  foreach($key in $contentArrays.Keys)
-  {
-    $releaseNotes[$key] = New-Object PSObject -Property @{
-      ReleaseVersion = $key
-      ReleaseContent = $contentArrays[$key] -join [Environment]::NewLine
-    }
-  }
-
-  return $releaseNotes
-}
-
 
 function CheckLines($changeLogLocation)
 {
