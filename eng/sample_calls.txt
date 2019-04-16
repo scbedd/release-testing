@@ -23,7 +23,7 @@ LOCAL NUGET
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/net_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-tools -packageRepository Nuget -workingDirectory C:/projects/publish/
 
 LOCAL WARDEN
-.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/warden_python_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-python -packageRepository PyPI -workingDirectory C:/projects/publish/
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages/warden -releaseSha ce4719adc3348409d64ef11a5d73fce248484fd5 -repoOwner Azure -repoName azure-sdk-tools -packageRepository PyPI -workingDirectory C:/projects/publish/
 
 
 

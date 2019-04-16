@@ -419,7 +419,7 @@ $pkgList = VerifyPackages -pkgRepository $packageRepository -artifactLocation $a
 Write-Host "Given the visible artifacts, github releases will be created for the following:"
 
 foreach($packageInfo in $pkgList){
-  $packageInfo
+  Write-Host $packageInfo.Tag
 }
 
 # CREATE TAGS and RELEASES
