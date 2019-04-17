@@ -37,13 +37,3 @@ jobs:
         displayName: 'Publish Artifacts'
         inputs:
           artifactName: packages
-
-  - job: 'Wait'
-    dependsOn: 'Build'
-    pool:
-      vmImage: 'ubuntu-16.04'
-
-    steps:
-      - powershell: |
-          Start-Sleep -Seconds 600
-        displayName: 'Delay'
