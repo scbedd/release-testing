@@ -39,7 +39,7 @@ jobs:
           artifactName: packages
 
   - job: 'Wait'
-    dependson: 'Build'
+    dependsOn: 'Build'
     pool:
       vmImage: 'ubuntu-16.04'
 
