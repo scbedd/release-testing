@@ -111,7 +111,7 @@ function ParseMavenPackage($pkg, $workingDirectory)
     return $null
   }
 
-  $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $pkg.DirectoryName -Recurse -Include "$($pkg.Basename).md")[0]
+  $releaseNotes = ExtractReleaseNotes -changeLogLocation @(Get-ChildItem -Path $pkg.DirectoryName -Recurse -Include "$($pkg.Basename)-changelog.md")[0]
 
   return New-Object PSObject -Property @{
     PackageId = $pkgId
