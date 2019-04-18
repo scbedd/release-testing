@@ -13,6 +13,9 @@
 LOCAL PYTHON
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-python -packageRepository PyPI -workingDirectory C:/projects/publish/
 
+LOCAL release-testing
+.\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/python_packages/packages2 -releaseSha 30b67129559e331e753798306951b35f1272d6e7 -repoOwner scbedd -repoName release-testing -packageRepository PyPI -workingDirectory C:/projects/publish/
+
 LOCAL js_packages
 .\create_tags_and_git_release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha releaseSha -repoOwner Azure -repoName azure-sdk-for-js -packageRepository NPM -workingDirectory C:/projects/publish/
 

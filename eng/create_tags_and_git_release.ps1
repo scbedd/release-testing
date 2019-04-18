@@ -26,6 +26,13 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
   foreach($pkgInfo in $pkgList)
   {
     Write-Host "Creating release $($pkgInfo.Tag)"
+
+    $releaseNotes = ''
+    if ($pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent -ne $null) 
+    {
+      $releaseNotes = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent 
+    }
+
     $url = $releaseApiUrl
     $body = ConvertTo-Json @{
       tag_name = $pkgInfo.Tag
@@ -33,8 +40,9 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
       name = $pkgInfo.Tag
       draft = $False
       prerelease = $False
-      body = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent # null if not present
+      body = $releaseNotes
     }
+
     $headers = @{
       "Content-Type" = "application/json"
       "Authorization" = "token $($env:GH_TOKEN)" 
