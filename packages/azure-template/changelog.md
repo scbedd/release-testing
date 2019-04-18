@@ -1,6 +1,6 @@
-# Demonstrate Wonky Header 0.3.4 - See? We still have notes
+# Demonstrate Wonky Header 0.3.5
 
-* This is a changelog for 0.3.4
+* This is a changelog for 0.3.5
 * This is a list
 
 > This is a quoted response
