@@ -1,5 +1,5 @@
 param (
-  $releaseTag = "manual_release",
+  $releaseTag = "manual_release_2",
   $releaseURL = "https://api.github.com/repos/scbedd/release-testing/releases", # Sample Github URL for azure-sdk-for-python: https://api.github.com/repos/scbedd/release-testing/releases
   $targetBranch = "master"
 )
@@ -12,6 +12,7 @@ function CreateRelease($releaseTag, $releaseURL, $targetBranch)
     target_commitish = "master"
     name = $releaseTag
     draft = $False
+    body = $null
     prerelease = $False
   }
   $headers = @{
@@ -22,9 +23,16 @@ function CreateRelease($releaseTag, $releaseURL, $targetBranch)
   Write-Host $body
   Write-Host $headers.Authorization
 
-  Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+  try {
+    Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers  
+  }
+  catch {
+    
+  }
 
   Write-Host $LastExitCode
+
+
 
   if ($LastExitCode -ne 0)
   {
