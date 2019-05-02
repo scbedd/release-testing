@@ -32,10 +32,15 @@ function CreateRelease($releaseTag, $releaseURL, $targetBranch)
     $statusCode = $response.StatusCode.value__
     $statusDescription = $response.StatusDescription
 
-    return $_.Exception.Response
-
-    Write-Host "Release request failed with statuscode $statusCode"
+    Write-Host "Release request attempt number $attempts to $releaseApiUrl failed with statuscode $statusCode"
     Write-Host $statusDescription
+
+    Write-Host "Rate Limit Details:"
+    Write-Host "Total: $($response.Headers.GetValues("X-RateLimit-Limit"))" 
+    Write-Host "Remaining: $($response.Headers.GetValues('X-RateLimit-Remaining'))" 
+    Write-Host "ResetEpoch: $($response.Headers.GetValues('X-RateLimit-Reset'))" 
+
+    return $_.Exception.Response
     exit(1)
   }
 
