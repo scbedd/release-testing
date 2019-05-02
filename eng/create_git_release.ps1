@@ -9,7 +9,7 @@ function CreateRelease($releaseTag, $releaseURL, $targetBranch)
   $url = $releaseURL
   $body = ConvertTo-Json @{
     tag_name = $releaseTag
-    target_commitish = "master"
+    target_commitish = $targetBranch
     name = $releaseTag
     draft = $False
     body = $null
@@ -27,12 +27,19 @@ function CreateRelease($releaseTag, $releaseURL, $targetBranch)
     Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers  
   }
   catch {
-    
+    $response = $_.Exception.Response
+
+    $statusCode = $response.StatusCode.value__
+    $statusDescription = $response.StatusDescription
+
+    return $_.Exception.Response
+
+    Write-Host "Release request failed with statuscode $statusCode"
+    Write-Host $statusDescription
+    exit(1)
   }
 
   Write-Host $LastExitCode
-
-
 
   if ($LastExitCode -ne 0)
   {
@@ -43,5 +50,5 @@ function CreateRelease($releaseTag, $releaseURL, $targetBranch)
 
 foreach($tag in ($releaseTags -Split ","))
 {
-    CreateRelease -releaseTag $releaseTag -ghToken $ghToken -releaseURL $releaseURL
+    return CreateRelease -releaseTag $releaseTag -ghToken $ghToken -releaseURL $releaseURL
 }
