@@ -27,7 +27,7 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
   {
     Write-Host "Creating release $($pkgInfo.Tag)"
 
-    $releaseNotes = ''
+    $releaseNotes = ""
     if ($pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent -ne $null) 
     {
       $releaseNotes = $pkgInfo.ReleaseNotes[$pkgInfo.PackageVersion].ReleaseContent 
@@ -48,17 +48,46 @@ function CreateReleases($pkgList, $releaseApiUrl, $releaseSha)
       "Authorization" = "token $($env:GH_TOKEN)" 
     }
 
-    try {
-      Invoke-RestMethod -Method 'Post' -Uri $url -Body $body -Headers $headers
+    PublishRelease -Url $url -Body $body -Headers $headers
+  }
+}
+
+function PublishRelease($Url, $Body, $Headers)
+{
+  $attempts = 1
+  
+  while($attempts -le 3)
+  {
+    try 
+    {
+      Invoke-RestMethod -Method "Post" -Uri $Url -Body $Body -Headers $Headers
+      break
     }
-    catch {
-      $statusCode = $_.Exception.Response.StatusCode.value__
-      $statusDescription = $_.Exception.Response.StatusDescription
-    
-      Write-Host "Release request to $releaseApiUrl failed with statuscode $statusCode"
+    catch 
+    {
+      $response = $_.Exception.Response
+
+      $statusCode = $response.StatusCode.value__
+      $statusDescription = $response.StatusDescription
+      
+      Write-Host "Release request attempt number $attempts to $releaseApiUrl failed with statuscode $statusCode"
       Write-Host $statusDescription
-      exit(1)
+
+      Write-Host "Rate Limit Details:"
+      Write-Host "Total: $($response.Headers.GetValues("X-RateLimit-Limit"))"
+      Write-Host "Remaining: $($response.Headers.GetValues("X-RateLimit-Remaining"))"
+      Write-Host "Reset Epoch: $($response.Headers.GetValues("X-RateLimit-Reset"))"
+
+      if ($attempts -gt 3)
+      {
+        Write-Host "Abandoning Release after 3 publish attempts."
+        exit(1)
+      }
+
+      Start-Sleep -s 10
     }
+
+    $attempts += 1
   }
 }
 
@@ -76,11 +105,11 @@ function ExtractReleaseNotes($changeLogLocation)
     $contents = Get-Content $changeLogLocation
 
     # walk the document, finding where the version specifiers are and creating lists
-    $version = ''
+    $version = ""
     foreach($line in $contents){
       if ($line -match $RELEASE_TITLE_REGEX)
       {
-        $version = $matches['version']
+        $version = $matches["version"]
         $contentArrays[$version] = @()
       }
       
@@ -135,7 +164,7 @@ function IsMavenPackageVersionPublished($pkgId, $pkgVersion, $groupId)
   try {
     
     $uri = "https://oss.sonatype.org/content/repositories/releases/$groupId/$pkgId/$pkgVersion/$pkgId-$pkgVersion.pom"
-    $pomContent = Invoke-RestMethod -Method 'GET' -Uri $uri
+    $pomContent = Invoke-RestMethod -Method "GET" -Uri $uri
 
     if($pomContent -ne $null -or $pomContent.Length -eq 0)
     {
@@ -271,8 +300,8 @@ function ParsePyPIPackage($pkg, $workingDirectory)
 {
   $pkg.Basename -match $SDIST_PACKAGE_REGEX | Out-Null
 
-  $pkgId = $matches['package']
-  $pkgVersion = $matches['versionstring']
+  $pkgId = $matches["package"]
+  $pkgVersion = $matches["versionstring"]
 
   $workFolder = "$workingDirectory$($pkg.Basename)"
   $origFolder = Get-Location
@@ -295,7 +324,7 @@ function ParsePyPIPackage($pkg, $workingDirectory)
 function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
 {
   try {
-    $existingVersion = (Invoke-RestMethod -Method 'Get' -Uri "https://pypi.org/pypi/$pkgId/$pkgVersion/json").info.version
+    $existingVersion = (Invoke-RestMethod -Method "Get" -Uri "https://pypi.org/pypi/$pkgId/$pkgVersion/json").info.version
 
     # if existingVersion exists, then it's already been published
     return $True
@@ -321,7 +350,7 @@ function IsPythonPackageVersionPublished($pkgId, $pkgVersion)
 # Retrieves the list of all tags that exist on the target repository
 function GetExistingTags($apiUrl){
   try {
-    return (Invoke-RestMethod -Method 'GET' -Uri "$apiUrl/git/refs/tags"  ) | % { $_.ref.Replace("refs/tags/", "") }
+    return (Invoke-RestMethod -Method "GET" -Uri "$apiUrl/git/refs/tags"  ) | % { $_.ref.Replace("refs/tags/", "") }
   }
   catch 
   {
@@ -339,8 +368,8 @@ function GetExistingTags($apiUrl){
 function VerifyPackages($pkgRepository, $artifactLocation, $workingDirectory, $apiUrl)
 {
   $pkgList = [array]@()
-  $ParsePkgInfoFn = ''
-  $packagePattern = ''
+  $ParsePkgInfoFn = ""
+  $packagePattern = ""
 
   switch($pkgRepository)
   {
@@ -427,8 +456,8 @@ $pkgList = VerifyPackages -pkgRepository $packageRepository -artifactLocation $a
 Write-Host "Given the visible artifacts, github releases will be created for the following:"
 
 foreach($packageInfo in $pkgList){
-  Write-Host $packageInfo.Tag
+  Write-Host $packageInfo
 }
 
 # CREATE TAGS and RELEASES
-CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha
+# CreateReleases -pkgList $pkgList -releaseApiUrl $apiUrl/releases -releaseSha $releaseSha

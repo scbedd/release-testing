@@ -67,3 +67,4 @@ $(System.DefaultWorkingDirectory)/../
 
 
 .\create-tags-and-git-release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha be522d0031a12eebd4338478564171e54d422371 -repoOwner Azure -repoName azure-sdk-for-js -packageRepository NPM -workingDirectory C:/projects/publish/
+
