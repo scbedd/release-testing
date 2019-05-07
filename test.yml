@@ -1,0 +1,23 @@
+trigger:
+  - master
+
+variables:
+  PythonVersion27: '2.7'
+  PythonVersion35: '3.5'
+  PythonVersion36: '3.6'
+  PythonVersion37: '3.7'
+  PythonVersion38: '3.8.0a2'
+  MaxParallel: coalesce($(MaxParallel), 0)
+
+jobs:
+
+  - job: 'Job1'
+    displayName: 'Job1'
+
+    pool:
+      vmImage: 'ubuntu-16.04'
+
+    steps:
+      - powershell: |
+          Write-Host $(MaxParallel)
+        displayName: 'Install dependencies'

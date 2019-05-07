@@ -68,3 +68,5 @@ $(System.DefaultWorkingDirectory)/../
 
 .\create-tags-and-git-release.ps1 -artifactLocation C:/projects/publish/js_packages -releaseSha be522d0031a12eebd4338478564171e54d422371 -repoOwner Azure -repoName azure-sdk-for-js -packageRepository NPM -workingDirectory C:/projects/publish/
 
+
+.\create-tags-and-git-release.ps1 -artifactLocation C:\projects\publish\net_packages\new -workingDirectory C:\projects\publish -packageRepository Nuget -releaseSha c9fa81a15c996d93734e70b8cf8b9c7ef8041684 -repoOwner Azure -repoName azure-sdk-for-net
